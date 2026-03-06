@@ -1,0 +1,10 @@
+pandas
+numpy
+opencv-python-headless
+Pillow
+torchmetrics
+matplotlib
+seaborn
+scikit-learn
+pytorch-lightning
+kagglehub
