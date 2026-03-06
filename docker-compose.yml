@@ -1,0 +1,8 @@
+services:
+  classificador:
+    build: .
+    volumes:
+      - D:\Dataset:/app/data
+  
+    deploy:
+      

@@ -181,11 +181,11 @@ class SimpleClassifier(pl.LightningModule):
 from pytorch_lightning.callbacks import Callback
 
 class ProgressoTextoCallback(Callback):
-    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
+    def on_train_batch_end(self, trainer, batch_idx):
         if batch_idx % 500 == 0:
             print(f"TREINO | Época {trainer.current_epoch} | Lote {batch_idx} processado.")
 
-    def on_validation_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx=0):
+    def on_validation_batch_end(self, trainer, batch_idx):
         if batch_idx % 100 == 0:
             print(f"VALIDAÇÃO | Época {trainer.current_epoch} | Lote {batch_idx} testado.")
 
