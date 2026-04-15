@@ -30,7 +30,7 @@ A melhor forma de rodar o projeto de forma padronizada e usando GPU é utilizar 
 
 ### 2. Configurando os volumes do dataset
 
-No arquivo `docker-compose.yml`, note que a pasta em cache local para os arquivos do Kaggle aponta para `D:\Dataset`. Edite este arquivo se desejar mudar o destino onde os 3GB+ de dados de tomografia serão salvos na sua máquina para não precisar fazer o download toda a vez:
+No arquivo `docker-compose.yml`, note que a pasta em cache local para os arquivos do Kaggle aponta para `D:\Dataset`. Edite este arquivo se desejar mudar o destino onde os dados de tomografia serão salvos na sua máquina para não precisar fazer o download toda a vez:
 ```yaml
     volumes:
       - D:\Dataset:/app/data
