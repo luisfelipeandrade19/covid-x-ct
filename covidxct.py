@@ -7,24 +7,13 @@ Original file is located at
     https://colab.research.google.com/#fileId=https%3A//storage.googleapis.com/kaggle-colab-exported-notebooks/lusfelipeandrade/covidxct.8040a875-59da-4ed8-8783-7b15b3f6b301.ipynb%3FX-Goog-Algorithm%3DGOOG4-RSA-SHA256%26X-Goog-Credential%3Dgcp-kaggle-com%2540kaggle-161607.iam.gserviceaccount.com/20260305/auto/storage/goog4_request%26X-Goog-Date%3D20260305T121934Z%26X-Goog-Expires%3D259200%26X-Goog-SignedHeaders%3Dhost%26X-Goog-Signature%3Da9ad5ab0aa19becbab54c566afac9d8a15238ad05928d1f990c19bd7489c24549ffe5aea674420fb49271c08ddba6f85be18ba33bb9e0e80dc9f1693306459295b6bfb418c62a6dcedc6fcb6ae9802cab694e4bd6b9afe462d71ca23312dd6cdfff8278e632249fd7f96dfdb34bcf54102f0f5318a1e102dedd70d9e893d5b2c44c5ae6d793047f7c6060d6cbff8cf67621b43cc6419e06c753518ef01631894566ca54cc8f665f4f69cf7fd2c934307c8ce4482cb82670f03a5c2a9613caeadd153607d87988eed884de2c3596828479fe275b82278ff0fe91fc713bddc3753683e34b9e3c9f0f52f4c7c3c240edbea4ebe9ce821ba05198095831c78d47aae
 """
 
-# IMPORTANT: RUN THIS CELL IN ORDER TO IMPORT YOUR KAGGLE DATA SOURCES,
-# THEN FEEL FREE TO DELETE THIS CELL.
-# NOTE: THIS NOTEBOOK ENVIRONMENT DIFFERS FROM KAGGLE'S PYTHON
-# ENVIRONMENT SO THERE MAY BE MISSING LIBRARIES USED BY YOUR
-# NOTEBOOK.
 import kagglehub
-pvlima_pretrained_pytorch_models_path = kagglehub.dataset_download('pvlima/pretrained-pytorch-models')
-hgunraj_covidxct_path = kagglehub.dataset_download('hgunraj/covidxct')
-
-print('Data source import complete.')
-
 import os
 from os import path
 import pandas as pd
 import numpy as np
 import cv2
 from PIL import Image
-import torchmetrics
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import confusion_matrix, classification_report
@@ -33,107 +22,89 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 import torchvision.transforms as transforms
 from torchvision.models import densenet161, DenseNet161_Weights
+import torchmetrics
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning.callbacks import TQDMProgressBar
+from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping, RichProgressBar
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
+# Download do dataset
+hgunraj_covidxct_path = kagglehub.dataset_download('hgunraj/covidxct')
+print('Data source import complete.')
 
-# tentando resolver deadlock
+# Tentando resolver deadlock
 cv2.setNumThreads(0)
 
 class Config:
     NUM_CLASSES = 3
-    BATCH_SIZE = 16
+    BATCH_SIZE = 32
     LEARNING_RATE = 0.001
     MAX_EPOCHS = 10
+    BASE_PATH = hgunraj_covidxct_path
+    IMAGES_DIR = os.path.join(BASE_PATH, '3A_images')
 
-lista_transformacoes = transforms.Compose([
+# Transformações com Data Augmentation para Treino
+train_transformacoes = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.RandomHorizontalFlip(0.5),
+    transforms.RandomRotation(degrees=10),
+    transforms.ColorJitter(brightness=0.2, contrast=0.2),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+])
+
+# Transformações sem Augmentation para Validação
+val_transformacoes = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
-
-
 class CovidCTDataset(Dataset):
     def __init__(self, txt_path, img_dir, transform=None):
-
         self.data = pd.read_csv(txt_path, sep=' ', header=None)
         self.img_dir = img_dir
         self.transform = transform
-        self.img_labels = pd.read_csv(txt_path, sep=' ', header=None)
+        self.clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
-
-        img_name = self.img_labels.iloc[idx, 0]
+        img_name = self.data.iloc[idx, 0]
         img_path = os.path.join(self.img_dir, img_name)
-        label = int(self.img_labels.iloc[idx, 1])
+        label = int(self.data.iloc[idx, 1])
 
-        image = cv2.imread(img_path)
-
+        image = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
         if image is None:
-            raise ValueError(f"Imagem não encontrada neste caminho: {img_path}")
+            raise ValueError(f"Imagem não encontrada: {img_path}")
 
-        if len(image.shape) == 3:
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-        self.clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         image = self.clahe.apply(image)
-
         image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
-
-
         image_pil = Image.fromarray(image)
-
 
         if self.transform:
             image_pil = self.transform(image_pil)
 
         return image_pil, label
 
-ROOT_INPUT_DIR = '/kaggle/input/'
-ROOT_OUTPUT_DIR = '/kaggle/working/'
-
-OLD_DATA_DIR = path.join(ROOT_INPUT_DIR, '3A_images')
-
-NEW_DATA_DIR = path.join(ROOT_OUTPUT_DIR, 'dataset')
-TRAIN_DIR = path.join(NEW_DATA_DIR, 'train')
-VAL_DIR = path.join(NEW_DATA_DIR, 'val')
-TEST_DIR = path.join(NEW_DATA_DIR, 'test')
-
-IMG_SIZE = 224
-INPUT_SHAPE = (IMG_SIZE, IMG_SIZE, 1)
-
 class SimpleClassifier(pl.LightningModule):
     def __init__(self, num_classes, learning_rate):
         super().__init__()
         self.learning_rate = learning_rate
         self.criterion = nn.CrossEntropyLoss()
-
         self.model = densenet161(weights=DenseNet161_Weights.DEFAULT)
 
         for param in self.model.parameters():
             param.requires_grad = False
-
         for name, param in self.model.named_parameters():
             if 'denseblock4' in name or 'norm5' in name:
                 param.requires_grad = True
 
-        num_ftrs = self.model.classifier.in_features
-        self.model.classifier = nn.Linear(num_ftrs, num_classes)
+        self.model.classifier = nn.Linear(self.model.classifier.in_features, num_classes)
 
+        # Métricas
         self.train_acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes)
-        self.train_f1 = torchmetrics.F1Score(task="multiclass", num_classes=num_classes, average='macro')
-        self.train_prec = torchmetrics.Precision(task="multiclass", num_classes=num_classes, average='macro')
-        self.train_rec = torchmetrics.Recall(task="multiclass", num_classes=num_classes, average='macro')
-
         self.val_acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes)
-        self.val_f1 = torchmetrics.F1Score(task="multiclass", num_classes=num_classes, average='macro')
-        self.val_prec = torchmetrics.Precision(task="multiclass", num_classes=num_classes, average='macro')
-        self.val_rec = torchmetrics.Recall(task="multiclass", num_classes=num_classes, average='macro')
 
     def forward(self, x):
         return self.model(x)
@@ -142,115 +113,69 @@ class SimpleClassifier(pl.LightningModule):
         x, y = batch
         logits = self(x)
         loss = self.criterion(logits, y)
-        preds = torch.argmax(logits, dim=1)
-
-        self.train_acc(preds, y)
-        self.train_f1(preds, y)
-        self.train_prec(preds, y)
-        self.train_rec(preds, y)
-
-        self.log('train_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
-        self.log('train_acc', self.train_acc, on_step=False, on_epoch=True, prog_bar=True)
-        self.log('train_f1', self.train_f1, on_step=False, on_epoch=True, prog_bar=True)
-        self.log('train_prec', self.train_prec, on_step=False, on_epoch=True)
-        self.log('train_rec', self.train_rec, on_step=False, on_epoch=True)
+        self.train_acc(torch.argmax(logits, dim=1), y)
+        self.log('train_loss', loss, on_epoch=True, prog_bar=True)
+        self.log('train_acc', self.train_acc, on_epoch=True, prog_bar=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
         logits = self(x)
         loss = self.criterion(logits, y)
-        preds = torch.argmax(logits, dim=1)
-
-        self.val_acc(preds, y)
-        self.val_f1(preds, y)
-        self.val_prec(preds, y)
-        self.val_rec(preds, y)
-
-        self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
-        self.log('val_acc', self.val_acc, on_step=False, on_epoch=True, prog_bar=True)
-        self.log('val_f1', self.val_f1, on_step=False, on_epoch=True, prog_bar=True)
-        self.log('val_prec', self.val_prec, on_step=False, on_epoch=True)
-        self.log('val_rec', self.val_rec, on_step=False, on_epoch=True)
+        self.val_acc(torch.argmax(logits, dim=1), y)
+        self.log('val_loss', loss, on_epoch=True, prog_bar=True)
+        self.log('val_acc', self.val_acc, on_epoch=True, prog_bar=True)
         return loss
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, self.parameters()), lr=self.learning_rate)
-        return optimizer
+        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=.1, patience=3)
+        return {"optimizer": optimizer, "lr_scheduler": {"scheduler": scheduler, "monitor": "val_loss"}}
 
-from pytorch_lightning.callbacks import Callback
+# Datasets e Loaders
+train_dataset = CovidCTDataset(os.path.join(Config.BASE_PATH, 'train_COVIDx_CT-3A.txt'), Config.IMAGES_DIR, transform=train_transformacoes)
+val_dataset = CovidCTDataset(os.path.join(Config.BASE_PATH, 'val_COVIDx_CT-3A.txt'), Config.IMAGES_DIR, transform=val_transformacoes)
 
-class ProgressoTextoCallback(Callback):
-    def on_train_batch_end(self, trainer, batch_idx):
-        if batch_idx % 500 == 0:
-            print(f"TREINO | Época {trainer.current_epoch} | Lote {batch_idx} processado.")
+train_loader = DataLoader(train_dataset, batch_size=Config.BATCH_SIZE, shuffle=True, num_workers=4, pin_memory=True)
+val_loader = DataLoader(val_dataset, batch_size=Config.BATCH_SIZE, shuffle=False, num_workers=4, pin_memory=True)
 
-    def on_validation_batch_end(self, trainer, batch_idx):
-        if batch_idx % 100 == 0:
-            print(f"VALIDAÇÃO | Época {trainer.current_epoch} | Lote {batch_idx} testado.")
+# Callbacks
+rich_progress = RichProgressBar()
+early_stop = EarlyStopping(monitor='val_loss', patience=3, mode='min')
 
-
-
-BASE_PATH = hgunraj_covidxct_path
-IMAGES_DIR = os.path.join(BASE_PATH, '3A_images')
-
-meu_progresso = ProgressoTextoCallback()
-
-train_dataset = CovidCTDataset(
-    txt_path=os.path.join(BASE_PATH, 'train_COVIDx_CT-3A.txt'),
-    img_dir=IMAGES_DIR,
-    transform=lista_transformacoes
-)
-
-val_dataset = CovidCTDataset(
-    txt_path=os.path.join(BASE_PATH, 'val_COVIDx_CT-3A.txt'),
-    img_dir=IMAGES_DIR,
-    transform=lista_transformacoes
-)
-
-train_loader = DataLoader(train_dataset, batch_size=Config.BATCH_SIZE, shuffle=True, num_workers=0)
-
-val_loader = DataLoader(val_dataset, batch_size=Config.BATCH_SIZE, shuffle=False, num_workers=0)
-
+# Treinamento
 model = SimpleClassifier(num_classes=Config.NUM_CLASSES, learning_rate=Config.LEARNING_RATE)
-trainer = pl.Trainer(max_epochs=Config.MAX_EPOCHS,
-                     accelerator='gpu',
-                     devices=1,
-                     enable_progress_bar=False,
-                     callbacks=[meu_progresso],
-                     limit_train_batches=0.1,
-                     limit_val_batches=0.1,
-                     precision='16-mixed',)
+trainer = pl.Trainer(
+    max_epochs=Config.MAX_EPOCHS,
+    accelerator='gpu',
+    devices=1,
+    callbacks=[rich_progress, early_stop],
+    precision='16-mixed'
+)
 
 trainer.fit(model, train_loader, val_loader)
 
+# Avaliação Final
+print("\n--- AVALIAÇÃO FINAL ---")
+model.eval()
+todas_preds, todas_labels = [], []
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model.to(device)
-model.eval()
-
-todas_preds = []
-todas_labels = []
 
 with torch.no_grad():
     for x, y in val_loader:
-        x = x.to(device)
-        logits = model(x)
-        preds = torch.argmax(logits, dim=1)
-
-        todas_preds.extend(preds.cpu().numpy())
+        logits = model(x.to(device))
+        todas_preds.extend(torch.argmax(logits, dim=1).cpu().numpy())
         todas_labels.extend(y.numpy())
 
-print("\n--- RESULTADOS FINAIS ---")
-print(classification_report(todas_labels, todas_preds, digits=4))
+print(classification_report(todas_labels, todas_preds, target_names=["Normal", "Pneumonia", "COVID-19"], digits=4))
 
+# Heatmap
 cm = confusion_matrix(todas_labels, todas_preds)
-
 plt.figure(figsize=(8, 6))
-sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
-            xticklabels=["Normal", "Pneumonia", "COVID-19"],
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
+            xticklabels=["Normal", "Pneumonia", "COVID-19"], 
             yticklabels=["Normal", "Pneumonia", "COVID-19"])
-plt.xlabel('Predição do Modelo', fontsize=12)
-plt.ylabel('Rótulo Real', fontsize=12)
-plt.title('Matriz de Confusão', fontsize=14)
+plt.title('Matriz de Confusão')
 plt.savefig('matriz-confusao.png')
 plt.show()
