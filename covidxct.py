@@ -31,14 +31,17 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 hgunraj_covidxct_path = kagglehub.dataset_download('hgunraj/covidxct')
 print('Data source import complete.')
 
+# Seed
+pl.seed_everything(42, workers=True)
+
 # Tentando resolver deadlock
 cv2.setNumThreads(0)
 
 class Config:
     NUM_CLASSES = 3
     BATCH_SIZE = 32
-    LEARNING_RATE = 0.001
-    MAX_EPOCHS = 10
+    LEARNING_RATE = 1e-4
+    MAX_EPOCHS = 30
     BASE_PATH = hgunraj_covidxct_path
     IMAGES_DIR = os.path.join(BASE_PATH, '3A_images')
 
@@ -91,7 +94,7 @@ class SimpleClassifier(pl.LightningModule):
     def __init__(self, num_classes, learning_rate):
         super().__init__()
         self.learning_rate = learning_rate
-        self.criterion = nn.CrossEntropyLoss()
+        self.criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
         self.model = densenet161(weights=DenseNet161_Weights.DEFAULT)
 
         for param in self.model.parameters():
@@ -128,7 +131,7 @@ class SimpleClassifier(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, self.parameters()), lr=self.learning_rate)
+        optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, self.parameters()), lr=self.learning_rate)
         scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=.1, patience=3)
         return {"optimizer": optimizer, "lr_scheduler": {"scheduler": scheduler, "monitor": "val_loss"}}
 
@@ -142,6 +145,13 @@ val_loader = DataLoader(val_dataset, batch_size=Config.BATCH_SIZE, shuffle=False
 # Callbacks
 rich_progress = RichProgressBar()
 early_stop = EarlyStopping(monitor='val_loss', patience=3, mode='min')
+model_checkpoint = ModelCheckpoint(
+    monitor='val_loss',
+    dirpath=os.path.join(Config.BASE_PATH, 'checkpoints'),
+    filename='best_model',
+    save_top_k=1,
+    mode='min'
+)
 
 # Treinamento
 model = SimpleClassifier(num_classes=Config.NUM_CLASSES, learning_rate=Config.LEARNING_RATE)
@@ -149,11 +159,13 @@ trainer = pl.Trainer(
     max_epochs=Config.MAX_EPOCHS,
     accelerator='gpu',
     devices=1,
-    callbacks=[rich_progress, early_stop],
+    callbacks=[rich_progress, early_stop, model_checkpoint],
     precision='16-mixed'
 )
 
 trainer.fit(model, train_loader, val_loader)
+model = SimpleClassifier.load_from_checkpoint(os.path.join(Config.BASE_PATH, 'checkpoints', 'best_model.ckpt'))
+
 
 # Avaliação Final
 print("\n--- AVALIAÇÃO FINAL ---")
