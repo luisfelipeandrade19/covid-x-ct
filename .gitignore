@@ -1,0 +1,22 @@
+# Agente IA
+GEMINI.md
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Artefatos de treino
+checkpoints/
+lightning_logs/
+*.ckpt
+
+# Outputs gerados
+matriz-confusao.png
+
+# Node
+package-lock.json
+
+# Ambiente
+.env
+data/
