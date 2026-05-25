@@ -31,8 +31,6 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 hgunraj_covidxct_path = kagglehub.dataset_download('hgunraj/covidxct')
 print('Data source import complete.')
 
-# Seed
-pl.seed_everything(42, workers=True)
 
 # Tentando resolver deadlock
 cv2.setNumThreads(0)
@@ -40,7 +38,7 @@ cv2.setNumThreads(0)
 class Config:
     NUM_CLASSES = 3
     BATCH_SIZE = 32
-    LEARNING_RATE = 1e-4
+    LEARNING_RATE = 0.001
     MAX_EPOCHS = 30
     BASE_PATH = hgunraj_covidxct_path
     IMAGES_DIR = os.path.join(BASE_PATH, '3A_images')
@@ -144,7 +142,7 @@ val_loader = DataLoader(val_dataset, batch_size=Config.BATCH_SIZE, shuffle=False
 
 # Callbacks
 rich_progress = RichProgressBar()
-early_stop = EarlyStopping(monitor='val_loss', patience=3, mode='min')
+early_stop = EarlyStopping(monitor='val_loss', patience=5, mode='min')
 model_checkpoint = ModelCheckpoint(
     monitor='val_loss',
     dirpath=os.path.join(Config.BASE_PATH, 'checkpoints'),
