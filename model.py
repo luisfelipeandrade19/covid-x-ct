@@ -19,7 +19,13 @@ class SimpleClassifier(pl.LightningModule):
             if 'denseblock4' in name or 'norm5' in name:
                 param.requires_grad = True
 
-        self.model.classifier = nn.Linear(self.model.classifier.in_features, num_classes)
+        self.model.classifier = nn.Sequential(
+            nn.Dropout(0.3),
+            nn.Linear(self.model.classifier.in_features, 512),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Linear(512, num_classes)
+        )
 
         # Métricas
         self.train_acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes)
