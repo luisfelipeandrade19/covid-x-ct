@@ -4,15 +4,21 @@ FROM pytorch/pytorch:2.1.0-cuda11.8-cudnn8-runtime
 # Define o diretório de trabalho dentro do contêiner
 WORKDIR /app
 
-# Copia os arquivos de dependência e o script para o contêiner
+# Copia os arquivos de dependência e instala
 COPY requirements.txt .
-COPY covidxct.py .
-
-# Instala as dependências do Python
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Copia os módulos do projeto para o contêiner
+COPY config.py .
+COPY dataset.py .
+COPY loaders.py .
+COPY model.py .
+COPY train.py .
+COPY evaluate.py .
+COPY utils.py .
 
 # Configura uma variável de ambiente para o kagglehub salvar os downloads em uma pasta específica
 ENV KAGGLEHUB_CACHE=/app/data
 
 # Comando padrão ao iniciar o contêiner
-CMD ["python", "covidxct.py"]
+CMD ["python", "train.py"]

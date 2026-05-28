@@ -1,43 +1,51 @@
+import os
+
 import matplotlib.pyplot as plt
 import seaborn as sns
 import torch
 from sklearn.metrics import classification_report, confusion_matrix
 
+from config import Config
 from loaders import val_loader
-from train import model
+from model import SimpleClassifier
 
-print("\n--- AVALIAÇÃO FINAL ---")
-model.eval()
-todas_preds, todas_labels = [], []
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model.to(device)
+if __name__ == "__main__":
+    # Carrega o modelo do checkpoint salvo pelo treinamento
+    checkpoint_path = os.path.join(Config.BASE_PATH, "checkpoints", "best_model.ckpt")
+    model = SimpleClassifier.load_from_checkpoint(checkpoint_path)
 
-with torch.no_grad():
-    for x, y in val_loader:
-        logits = model(x.to(device))
-        todas_preds.extend(torch.argmax(logits, dim=1).cpu().numpy())
-        todas_labels.extend(y.numpy())
+    print("\n--- AVALIAÇÃO FINAL ---")
+    model.eval()
+    todas_preds, todas_labels = [], []
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
 
-print(
-    classification_report(
-        todas_labels,
-        todas_preds,
-        target_names=["Normal", "Pneumonia", "COVID-19"],
-        digits=4,
+    with torch.no_grad():
+        for x, y in val_loader:
+            logits = model(x.to(device))
+            todas_preds.extend(torch.argmax(logits, dim=1).cpu().numpy())
+            todas_labels.extend(y.numpy())
+
+    print(
+        classification_report(
+            todas_labels,
+            todas_preds,
+            target_names=["Normal", "Pneumonia", "COVID-19"],
+            digits=4,
+        )
     )
-)
 
-# Heatmap
-cm = confusion_matrix(todas_labels, todas_preds)
-plt.figure(figsize=(8, 6))
-sns.heatmap(
-    cm,
-    annot=True,
-    fmt="d",
-    cmap="Blues",
-    xticklabels=["Normal", "Pneumonia", "COVID-19"],
-    yticklabels=["Normal", "Pneumonia", "COVID-19"],
-)
-plt.title("Matriz de Confusão")
-plt.savefig("matriz-confusao.png")
-plt.show()
+    # Heatmap
+    cm = confusion_matrix(todas_labels, todas_preds)
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(
+        cm,
+        annot=True,
+        fmt="d",
+        cmap="Blues",
+        xticklabels=["Normal", "Pneumonia", "COVID-19"],
+        yticklabels=["Normal", "Pneumonia", "COVID-19"],
+    )
+    plt.title("Matriz de Confusão")
+    plt.savefig("matriz-confusao.png")
+    plt.show()

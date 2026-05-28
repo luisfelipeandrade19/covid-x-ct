@@ -5,6 +5,7 @@ GEMINI.md
 __pycache__/
 *.pyc
 *.pyo
+.venv/
 
 # Artefatos de treino
 checkpoints/
