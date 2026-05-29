@@ -70,4 +70,4 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.savefig("matriz-confusao-normalizada.png")
     plt.show()
-    
+
