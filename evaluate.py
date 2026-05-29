@@ -35,7 +35,7 @@ if __name__ == "__main__":
         )
     )
 
-    # Heatmap
+    # Matriz confusão
     cm = confusion_matrix(todas_labels, todas_preds)
     plt.figure(figsize=(8, 6))
     sns.heatmap(
@@ -47,13 +47,14 @@ if __name__ == "__main__":
         yticklabels=["Normal", "Pneumonia", "COVID-19"],
     )
     plt.title("Matriz de Confusão")
+    plt.xlabel('Predição')
+    plt.ylabel('Real')
+    plt.tight_layout()
     plt.savefig("matriz-confusao.png")
     plt.show()
-<<<<<<< Updated upstream
-=======
 
     # Matriz confusão normalizada
-    cm_norm = confusion_matrix(todas_labels, todas_preds, normalized="true")
+    cm_norm = confusion_matrix(todas_labels, todas_preds, normalized='true')
     plt.figure(figsize=(8,6))
     sns.heatmap(
         cm_norm,
@@ -69,6 +70,4 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.savefig("matriz-confusao-normalizada.png")
     plt.show()
-  
-    
->>>>>>> Stashed changes
+
