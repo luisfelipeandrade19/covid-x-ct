@@ -2,6 +2,7 @@ import os
 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, RichProgressBar
+from pytorch_lightning.loggers import CSVLogger
 
 from callbacks import GradualUnfreezing
 
@@ -29,12 +30,17 @@ if __name__ == "__main__":
     model = SimpleClassifier(
         num_classes=Config.NUM_CLASSES, learning_rate=Config.LEARNING_RATE
     )
+    csv_logger = CSVLogger(
+        save_dir=Config.BASE_PATH,
+        name="lightning_csv_logs",
+    )
 
     trainer = pl.Trainer(
         max_epochs=Config.MAX_EPOCHS,
         accelerator="gpu",
         devices=1,
         callbacks=[rich_progress, early_stop, model_checkpoint, gradual_unfreeze],
+        logger=csv_logger,
         precision="16-mixed",
     )
 
