@@ -8,6 +8,7 @@ import torch
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.metrics import roc_curve, auc
 from sklearn.preprocessing import label_binarize
+from sklearn.metrics import precision_recall_curve, average_precision_score
 
 from config import Config
 from loaders import val_loader
@@ -123,7 +124,6 @@ if __name__ == "__main__":
     plt.save_fig("curvas_treinamento.png", dpi=300)
 
     # Curva ROC e AOC ( Por classe )
-
     todas_probs = []
     with torch.no_grad():
         for x,y in test_loader:
@@ -141,11 +141,26 @@ if __name__ == "__main__":
         roc_auc = auc(fpr, tpr)
         plt.plot(fpr, tpr, label=f'{nomes_classes[i]} (AUC = {roc_auc:.4f})')
 
-        plt.plot([0, 1], [0, 1], 'k--', alpha=0.3)
-        plt.xlabel('Taxa de falso positivo')
-        plt.ylabel('Taxa de verdadeiro positivo')
-        plt.title('Curva ROC - One vs Rest')
-        plt.legend()
-        plt.grid(True, alpha=0.3)
-        plt.tight_layout()
-        plt.savefig('curva_roc.png', dpi=300)
+    plt.plot([0, 1], [0, 1], 'k--', alpha=0.3)
+    plt.xlabel('Taxa de falso positivo')
+    plt.ylabel('Taxa de verdadeiro positivo')
+    plt.title('Curva ROC - One vs Rest')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig('curva_roc.png', dpi=300)
+
+    # Curva de Precision-Recall
+    plt.figure(figsize=(8, 6))
+    for i in range(Config.NUM_CLASSES):
+        precision, recall, _ = precision_recall_curve(labels_bin[:, i], todas_probs[:, i])
+        ap = average_precision_score(labels_bin[:, i], todas_probs[:, i])
+        plt.plot(recall, precision, label=f'{nomes_classes[i]} (AP = {ap:.4f})')
+
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
+    plt.title('Curva Precision-Recall')
+    plt.legend()
+    plt.grid(True,alpha=0.3)
+    plt.tight_layout()
+    plt.savefig('curva_precision_recall.png', dpi=300)
