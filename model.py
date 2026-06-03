@@ -44,9 +44,7 @@ class SimpleClassifier(pl.LightningModule):
         self.train_acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes)
         self.val_acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes)
 
-    # ------------------------------------------------------------------ #
-    #  Descongelamento gradual                                            #
-    # ------------------------------------------------------------------ #
+    #  Descongelamento gradual
     def unfreeze_stage(self, stage: int):
         """Descongela todos os blocos até a fase indicada (inclusive)."""
         if stage <= self._current_stage and self._current_stage > 0:
@@ -61,9 +59,6 @@ class SimpleClassifier(pl.LightningModule):
 
         self._current_stage = min(stage, len(self.UNFREEZE_STAGES) - 1)
 
-    # ------------------------------------------------------------------ #
-    #  Forward / steps                                                     #
-    # ------------------------------------------------------------------ #
     def forward(self, x):
         return self.model(x)
 
@@ -85,9 +80,6 @@ class SimpleClassifier(pl.LightningModule):
         self.log('val_acc', self.val_acc, on_epoch=True, prog_bar=True)
         return loss
 
-    # ------------------------------------------------------------------ #
-    #  Optimizer com learning rates discriminativos                        #
-    # ------------------------------------------------------------------ #
     def configure_optimizers(self):
         param_groups = self._build_param_groups()
         optimizer = torch.optim.AdamW(param_groups, lr=self.learning_rate)
@@ -101,7 +93,7 @@ class SimpleClassifier(pl.LightningModule):
         camadas descongeladas em fases anteriores recebem LRs
         progressivamente menores (multiplicadas por lr_decay_factor).
         """
-        # Agrupa parâmetros treináveis por fase
+    
         stage_params = {s: [] for s in range(len(self.UNFREEZE_STAGES))}
         classifier_params = []
 
@@ -109,12 +101,10 @@ class SimpleClassifier(pl.LightningModule):
             if not param.requires_grad:
                 continue
 
-            # Classifier (head) — sempre no grupo de maior LR
             if 'classifier' in name:
                 classifier_params.append(param)
                 continue
 
-            # Descobre a qual fase o parâmetro pertence
             assigned = False
             for s, blocks in enumerate(self.UNFREEZE_STAGES):
                 if any(block in name for block in blocks):
@@ -130,8 +120,6 @@ class SimpleClassifier(pl.LightningModule):
         if classifier_params:
             groups.append({'params': classifier_params, 'lr': self.learning_rate})
 
-        # Backbone: fases mais recentes → LR mais alto
-        # Fase current_stage recebe lr * decay^1, current_stage-1 recebe lr * decay^2, ...
         for s in range(self._current_stage, 0, -1):
             if stage_params[s]:
                 distance = self._current_stage - s + 1
