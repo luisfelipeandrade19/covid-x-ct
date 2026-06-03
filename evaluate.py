@@ -6,6 +6,8 @@ import pandas as pd
 import seaborn as sns
 import torch
 from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import roc_curve, auc
+from sklearn.preprocessing import label_binarize
 
 from config import Config
 from loaders import val_loader
@@ -119,3 +121,31 @@ if __name__ == "__main__":
 
     plt.tight_layout()
     plt.save_fig("curvas_treinamento.png", dpi=300)
+
+    # Curva ROC e AOC ( Por classe )
+
+    todas_probs = []
+    with torch.no_grad():
+        for x,y in test_loader:
+            logits = model(x.to(device))
+            probs = torch.softmax(logits, dim=1)
+            todas_probs.extend(probs.cpu().numpy())
+
+    todas_probs = np.array(todas_probs)
+    labels_bin = label_binarize(todas_labels, classes=[0, 1, 2])    
+    nomes_classes = ["Normal", "Pneumonia", "COVID-19"]
+
+    plt.figure(figsize=(8, 6))
+    for i in range(Config.NUM_CLASSES):
+        fpr, tpr, _ = roc_curve(labels_bin[:, i], todas_probs[:, i])
+        roc_auc = auc(fpr, tpr)
+        plt.plot(fpr, tpr, label=f'{nomes_classes[i]} (AUC = {roc_auc:.4f})')
+
+        plt.plot([0, 1], [0, 1], 'k--', alpha=0.3)
+        plt.xlabel('Taxa de falso positivo')
+        plt.ylabel('Taxa de verdadeiro positivo')
+        plt.title('Curva ROC - One vs Rest')
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        plt.savefig('curva_roc.png', dpi=300)
