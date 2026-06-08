@@ -4,6 +4,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
+import numpy as np
+
 import torch
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.metrics import roc_curve, auc
@@ -59,7 +61,7 @@ if __name__ == "__main__":
     plt.show()
 
     # Matriz confusão normalizada
-    cm_norm = confusion_matrix(todas_labels, todas_preds, normalized="true")
+    cm_norm = confusion_matrix(todas_labels, todas_preds, normalize="true")
     plt.figure(figsize=(8, 6))
     sns.heatmap(
         cm_norm,

@@ -15,6 +15,12 @@ val_dataset = CovidCTDataset(
     transform=val_transformacoes,
 )
 
+test_dataset = CovidCTDataset(
+    os.path.join(Config.BASE_PATH, "test_COVIDx_CT-3A.txt"),
+    Config.IMAGES_DIR,
+    transform=val_transformacoes,
+)
+
 train_loader = DataLoader(
     train_dataset,
     batch_size=Config.BATCH_SIZE,
@@ -24,6 +30,14 @@ train_loader = DataLoader(
 )
 val_loader = DataLoader(
     val_dataset,
+    batch_size=Config.BATCH_SIZE,
+    shuffle=False,
+    num_workers=4,
+    pin_memory=True,
+)
+
+test_loader = DataLoader(
+    test_dataset,
     batch_size=Config.BATCH_SIZE,
     shuffle=False,
     num_workers=4,
