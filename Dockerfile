@@ -9,14 +9,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copia os módulos do projeto para o contêiner
-COPY config.py .
-COPY dataset.py .
-COPY loaders.py .
-COPY model.py .
-COPY train.py .
-COPY evaluate.py .
-COPY utils.py .
-COPY callbacks.py .
+COPY . .
 
 # Configura uma variável de ambiente para o kagglehub salvar os downloads em uma pasta específica
 ENV KAGGLEHUB_CACHE=/app/data

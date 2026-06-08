@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+
+# Artefatos de treino
+checkpoints/
+lightning_logs/
+lightning_csv_logs/
+*.ckpt
+
+# Outputs gerados
+*.png
+
+# Ambiente
+.env
+data/
+
+# Arquivos desnecessários no container
+.git/
+.gitignore
+.dockerignore
+README.md
+Dockerfile
+docker-compose.yml
