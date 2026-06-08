@@ -16,9 +16,10 @@ COPY model.py .
 COPY train.py .
 COPY evaluate.py .
 COPY utils.py .
+COPY callbacks.py .
 
 # Configura uma variável de ambiente para o kagglehub salvar os downloads em uma pasta específica
 ENV KAGGLEHUB_CACHE=/app/data
 
 # Comando padrão ao iniciar o contêiner
-CMD ["python", "train.py"]
+CMD ["python", "train.py"]
