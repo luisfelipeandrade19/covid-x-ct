@@ -15,8 +15,7 @@ class GradualUnfreezing(pl.Callback):
         if target_stage > self._last_stage:
             pl_module.unfreeze_stage(target_stage)
             self._last_stage = target_stage
-
-            # Recria o optimizer com os novos param groups
+            
             new_optim_config = pl_module.configure_optimizers()
             trainer.optimizers = [new_optim_config["optimizer"]]
             trainer.lr_schedulers = [
