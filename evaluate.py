@@ -2,6 +2,8 @@ import os
 
 import matplotlib.pyplot as plt
 import seaborn as sns
+import numpy as np
+
 import torch
 from sklearn.metrics import classification_report, confusion_matrix
 
@@ -56,6 +58,8 @@ if __name__ == "__main__":
     # Matriz confusão normalizada
     cm_norm = confusion_matrix(todas_labels, todas_preds, normalized='true')
     plt.figure(figsize=(8,6))
+    cm_norm = confusion_matrix(todas_labels, todas_preds, normalize="true")
+    plt.figure(figsize=(8, 6))
     sns.heatmap(
         cm_norm,
         annot=True,
@@ -71,3 +75,92 @@ if __name__ == "__main__":
     plt.savefig("matriz-confusao-normalizada.png")
     plt.show()
 
+
+    # Curvas de Treinamento
+
+    # ALERTA: Sempre trocar a versão quando treinar novamente
+    metrics_path = (
+        Path(Config.BASE_PATH) / "lightning_csv_logs" / "version_0" / "metrics.csv"
+    )
+    metrics = pd.read_csv(metrics_path)
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+
+    # Loss
+    ax1.plot(
+        metrics["epoch"].dropna().unique(),
+        metrics.groupby("epoch")["train_loss"].mean().dropna(),
+        label="Treino",
+    )
+    ax1.plot(
+        metrics["epoch"].dropna().unique(),
+        metrics.groupby("epoch")["val_loss"].mean().dropna(),
+        label="Validação",
+    )
+    ax1.set_xlabel("Epoca")
+    ax1.set_ylabel("Loss")
+    ax1.set_title("Evolução da Loss")
+    ax1.legend()
+    ax1.grid(True, alpha=0.3)
+
+    # Acuracy
+    ax2.plot(
+        metrics["epoch"].dropna().unique(),
+        metrics.groupby("epoch")["train_acc"].mean().dropna(),
+        label="Treino",
+    )
+    ax1.plot(
+        metrics["epoch"].dropna().unique(),
+        metrics.groupby("epoch")["val_acc"].mean().dropna(),
+        label="Validação",
+    )
+    ax1.set_xlabel("Epoca")
+    ax2.set_ylabel("Loss")
+    ax1.set_title("Evolução da Acuracy")
+    ax1.legend()
+    ax1.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    plt.savefig("curvas_treinamento.png", dpi=300)
+
+    # Curva ROC e AOC ( Por classe )
+    todas_probs = []
+    with torch.no_grad():
+        for x,y in test_loader:
+            logits = model(x.to(device))
+            probs = torch.softmax(logits, dim=1)
+            todas_probs.extend(probs.cpu().numpy())
+
+    todas_probs = np.array(todas_probs)
+    labels_bin = label_binarize(todas_labels, classes=[0, 1, 2])    
+    nomes_classes = ["Normal", "Pneumonia", "COVID-19"]
+
+    plt.figure(figsize=(8, 6))
+    for i in range(Config.NUM_CLASSES):
+        fpr, tpr, _ = roc_curve(labels_bin[:, i], todas_probs[:, i])
+        roc_auc = auc(fpr, tpr)
+        plt.plot(fpr, tpr, label=f'{nomes_classes[i]} (AUC = {roc_auc:.4f})')
+
+    plt.plot([0, 1], [0, 1], 'k--', alpha=0.3)
+    plt.xlabel('Taxa de falso positivo')
+    plt.ylabel('Taxa de verdadeiro positivo')
+    plt.title('Curva ROC - One vs Rest')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig('curva_roc.png', dpi=300)
+
+    # Curva de Precision-Recall
+    plt.figure(figsize=(8, 6))
+    for i in range(Config.NUM_CLASSES):
+        precision, recall, _ = precision_recall_curve(labels_bin[:, i], todas_probs[:, i])
+        ap = average_precision_score(labels_bin[:, i], todas_probs[:, i])
+        plt.plot(recall, precision, label=f'{nomes_classes[i]} (AP = {ap:.4f})')
+
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
+    plt.title('Curva Precision-Recall')
+    plt.legend()
+    plt.grid(True,alpha=0.3)
+    plt.tight_layout()
+    plt.savefig('curva_precision_recall.png', dpi=300)
