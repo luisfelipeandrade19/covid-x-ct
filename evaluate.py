@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 
+import matplotlib
+matplotlib.use('Agg')  # Backend sem display (compatível com Docker)
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns

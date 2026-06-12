@@ -15,6 +15,7 @@ class Config:
     EPOCHS_PER_STAGE = 5         # Épocas por fase de descongelamento gradual
     MAX_UNFREEZE_STAGE = 4       # Número máximo de fases de descongelamento
     MAX_EPOCHS = 25              # Número máximo de épocas de treino
+    SEED = 42                    # Seed para reprodutibilidade
 
     # Caminhos do dataset (retornados pelo KaggleHub)
     BASE_PATH = ctxcovid

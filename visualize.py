@@ -1,6 +1,8 @@
 import os
 
 import cv2
+import matplotlib
+matplotlib.use('Agg')  # Backend sem display (compatível com Docker)
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
