@@ -17,38 +17,50 @@ from loaders import val_loader
 from model import SimpleClassifier
 
 if __name__ == "__main__":
-    # Carrega o modelo do checkpoint salvo pelo treinamento
+    # -------------------------------------------------------------------
+    # Carregamento do modelo treinado
+    # -------------------------------------------------------------------
+
+    # Carrega o melhor checkpoint salvo durante o treino
     checkpoint_path = os.path.join(Config.BASE_PATH, "checkpoints", "best_model.ckpt")
     model = SimpleClassifier.load_from_checkpoint(checkpoint_path)
 
     print("\n--- AVALIAÇÃO FINAL ---")
-    model.eval()
-    todas_preds, todas_labels = [], []
+    model.eval()    # Coloca o modelo em modo de avaliação (desativa dropout, etc.)
+
+    # Listas para acumular predições e rótulos reais
+    all_preds, all_labels = [], []
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
+    # Inferência sem cálculo de gradientes (economia de memória)
     with torch.no_grad():
         for x, y in val_loader:
             logits = model(x.to(device))
-            todas_preds.extend(torch.argmax(logits, dim=1).cpu().numpy())
-            todas_labels.extend(y.numpy())
+            all_preds.extend(torch.argmax(logits, dim=1).cpu().numpy())
+            all_labels.extend(y.numpy())
 
+    # -------------------------------------------------------------------
+    # Relatório de classificação (Precision, Recall, F1-Score)
+    # -------------------------------------------------------------------
     print(
         classification_report(
-            todas_labels,
-            todas_preds,
+            all_labels,
+            all_preds,
             target_names=["Normal", "Pneumonia", "COVID-19"],
             digits=4,
         )
     )
 
-    # Matriz confusão
-    cm = confusion_matrix(todas_labels, todas_preds)
+    # -------------------------------------------------------------------
+    # Matriz de confusão (valores absolutos)
+    # -------------------------------------------------------------------
+    cm = confusion_matrix(all_labels, all_preds)
     plt.figure(figsize=(8, 6))
     sns.heatmap(
         cm,
         annot=True,
-        fmt="d",
+        fmt="d",                    # Formato inteiro
         cmap="Blues",
         xticklabels=["Normal", "Pneumonia", "COVID-19"],
         yticklabels=["Normal", "Pneumonia", "COVID-19"],
@@ -57,16 +69,18 @@ if __name__ == "__main__":
     plt.xlabel("Predição")
     plt.ylabel("Real")
     plt.tight_layout()
-    plt.savefig("matriz-confusao.png")
+    plt.savefig("confusion_matrix.png")
     plt.show()
 
-    # Matriz confusão normalizada
-    cm_norm = confusion_matrix(todas_labels, todas_preds, normalize="true")
+    # -------------------------------------------------------------------
+    # Matriz de confusão normalizada (proporções por classe real)
+    # -------------------------------------------------------------------
+    cm_norm = confusion_matrix(all_labels, all_preds, normalize="true")
     plt.figure(figsize=(8, 6))
     sns.heatmap(
         cm_norm,
         annot=True,
-        fmt="d",
+        fmt=".2f",                  # Formato float com 2 casas decimais
         cmap="Blues",
         xticklabels=["Normal", "Pneumonia", "COVID-19"],
         yticklabels=["Normal", "Pneumonia", "COVID-19"],
@@ -75,10 +89,12 @@ if __name__ == "__main__":
     plt.xlabel("Predição")
     plt.ylabel("Real")
     plt.tight_layout()
-    plt.savefig("matriz-confusao-normalizada.png")
+    plt.savefig("confusion_matrix_normalized.png")
     plt.show()
 
-    # Curvas de Treinamento
+    # -------------------------------------------------------------------
+    # Curvas de treinamento (Loss e Accuracy por época)
+    # -------------------------------------------------------------------
 
     # Detecta automaticamente a última versão do CSVLogger
     logs_dir = Path(Config.BASE_PATH) / "lightning_csv_logs"
@@ -88,86 +104,98 @@ if __name__ == "__main__":
     )
     if not versions:
         raise FileNotFoundError(f"Nenhuma versão encontrada em {logs_dir}")
+
+    # Lê as métricas da última versão
     metrics_path = versions[-1] / "metrics.csv"
     metrics = pd.read_csv(metrics_path)
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
 
-    # Loss
+    # Gráfico de Loss (treino vs validação)
     ax1.plot(
         metrics["epoch"].dropna().unique(),
-        metrics.grouphy("epoch")["train_loss"].mean().dropna(),
+        metrics.groupby("epoch")["train_loss"].mean().dropna(),
         label="Treino",
     )
     ax1.plot(
         metrics["epoch"].dropna().unique(),
-        metrics.grouphy("epoch")["val_loss"].mean().dropna(),
+        metrics.groupby("epoch")["val_loss"].mean().dropna(),
         label="Validação",
     )
-    ax1.set_xlabel("Epoca")
+    ax1.set_xlabel("Época")
     ax1.set_ylabel("Loss")
     ax1.set_title("Evolução da Loss")
     ax1.legend()
     ax1.grid(True, alpha=0.3)
 
-    # Acuracy
+    # Gráfico de Accuracy (treino vs validação)
     ax2.plot(
         metrics["epoch"].dropna().unique(),
-        metrics.grouphy("epoch")["train_acc"].mean().dropna(),
+        metrics.groupby("epoch")["train_acc"].mean().dropna(),
         label="Treino",
     )
-    ax1.plot(
+    ax2.plot(
         metrics["epoch"].dropna().unique(),
-        metrics.grouphy("epoch")["val_acc"].mean().dropna(),
+        metrics.groupby("epoch")["val_acc"].mean().dropna(),
         label="Validação",
     )
-    ax1.set_xlabel("Epoca")
-    ax1.set_ylabel("Loss")
-    ax1.set_title("Evolução da Acuracy")
-    ax1.legend()
-    ax1.grid(True, alpha=0.3)
+    ax2.set_xlabel("Época")
+    ax2.set_ylabel("Accuracy")
+    ax2.set_title("Evolução da Accuracy")
+    ax2.legend()
+    ax2.grid(True, alpha=0.3)
 
     plt.tight_layout()
-    plt.save_fig("curvas_treinamento.png", dpi=300)
+    plt.savefig("training_curves.png", dpi=300)
 
-    # Curva ROC e AOC ( Por classe )
-    todas_probs = []
+    # -------------------------------------------------------------------
+    # Curva ROC e AUC (uma curva por classe — One vs Rest)
+    # -------------------------------------------------------------------
+    all_probs = []
+
+    # Coleta as probabilidades (softmax) de cada amostra
     with torch.no_grad():
-        for x,y in test_loader:
+        for x, y in val_loader:
             logits = model(x.to(device))
             probs = torch.softmax(logits, dim=1)
-            todas_probs.extend(probs.cpu().numpy())
+            all_probs.extend(probs.cpu().numpy())
 
-    todas_probs = np.array(todas_probs)
-    labels_bin = label_binarize(todas_labels, classes=[0, 1, 2])    
-    nomes_classes = ["Normal", "Pneumonia", "COVID-19"]
+    all_probs = np.array(all_probs)
 
+    # Binariza os rótulos para cálculo per-classe
+    labels_bin = label_binarize(all_labels, classes=[0, 1, 2])
+    class_names = ["Normal", "Pneumonia", "COVID-19"]
+
+    # Plota a curva ROC para cada classe
     plt.figure(figsize=(8, 6))
     for i in range(Config.NUM_CLASSES):
-        fpr, tpr, _ = roc_curve(labels_bin[:, i], todas_probs[:, i])
+        fpr, tpr, _ = roc_curve(labels_bin[:, i], all_probs[:, i])
         roc_auc = auc(fpr, tpr)
-        plt.plot(fpr, tpr, label=f'{nomes_classes[i]} (AUC = {roc_auc:.4f})')
+        plt.plot(fpr, tpr, label=f'{class_names[i]} (AUC = {roc_auc:.4f})')
 
+    # Linha diagonal de referência (classificador aleatório)
     plt.plot([0, 1], [0, 1], 'k--', alpha=0.3)
-    plt.xlabel('Taxa de falso positivo')
-    plt.ylabel('Taxa de verdadeiro positivo')
-    plt.title('Curva ROC - One vs Rest')
+    plt.xlabel('Taxa de Falso Positivo')
+    plt.ylabel('Taxa de Verdadeiro Positivo')
+    plt.title('Curva ROC — One vs Rest')
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig('curva_roc.png', dpi=300)
+    plt.savefig('roc_curve.png', dpi=300)
 
-    # Curva de Precision-Recall
+    # -------------------------------------------------------------------
+    # Curva Precision-Recall (uma curva por classe)
+    # -------------------------------------------------------------------
     plt.figure(figsize=(8, 6))
     for i in range(Config.NUM_CLASSES):
-        precision, recall, _ = precision_recall_curve(labels_bin[:, i], todas_probs[:, i])
-        ap = average_precision_score(labels_bin[:, i], todas_probs[:, i])
-        plt.plot(recall, precision, label=f'{nomes_classes[i]} (AP = {ap:.4f})')
+        precision, recall, _ = precision_recall_curve(labels_bin[:, i], all_probs[:, i])
+        ap = average_precision_score(labels_bin[:, i], all_probs[:, i])
+        plt.plot(recall, precision, label=f'{class_names[i]} (AP = {ap:.4f})')
 
     plt.xlabel('Recall')
     plt.ylabel('Precision')
     plt.title('Curva Precision-Recall')
     plt.legend()
-    plt.grid(True,alpha=0.3)
+    plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig('curva_precision_recall.png', dpi=300)
+    plt.savefig('precision_recall_curve.png', dpi=300)
