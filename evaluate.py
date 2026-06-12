@@ -80,10 +80,15 @@ if __name__ == "__main__":
 
     # Curvas de Treinamento
 
-    # ALERTA: Sempre trocar a versão quando treinar novamente
-    metrics_path = (
-        Path(Config.BASE_PATH) / "lightning_csv_logs" / "version_0" / "metrics.csv"
+    # Detecta automaticamente a última versão do CSVLogger
+    logs_dir = Path(Config.BASE_PATH) / "lightning_csv_logs"
+    versions = sorted(
+        [d for d in logs_dir.iterdir() if d.is_dir() and d.name.startswith("version_")],
+        key=lambda p: int(p.name.split("_")[-1]),
     )
+    if not versions:
+        raise FileNotFoundError(f"Nenhuma versão encontrada em {logs_dir}")
+    metrics_path = versions[-1] / "metrics.csv"
     metrics = pd.read_csv(metrics_path)
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
