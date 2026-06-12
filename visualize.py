@@ -1,13 +1,14 @@
 import os
 
 import cv2
+import matplotlib
+matplotlib.use('Agg')  # Backend sem display (compatível com Docker)
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn.functional as F
 
 from config import Config
-from dataset import val_transforms
 from loaders import val_loader
 from model import SimpleClassifier
 

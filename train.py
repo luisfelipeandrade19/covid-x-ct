@@ -13,6 +13,11 @@ from model import SimpleClassifier
 
 if __name__ == "__main__":
     # -------------------------------------------------------------------
+    # Seed — garante reprodutibilidade (random, numpy, torch, CUDA)
+    # -------------------------------------------------------------------
+    pl.seed_everything(Config.SEED, workers=True)
+
+    # -------------------------------------------------------------------
     # Callbacks — controlam comportamento durante o treino
     # -------------------------------------------------------------------
 
