@@ -3,9 +3,7 @@ from dataset import CovidCTDataset, train_transforms, val_transforms
 from torch.utils.data import DataLoader
 import os
 
-# ---------------------------------------------------------------------------
 # Datasets — instâncias do CovidCTDataset para cada split
-# ---------------------------------------------------------------------------
 
 # Dataset de treino com augmentation (flip, rotação, jitter)
 train_dataset = CovidCTDataset(
@@ -28,9 +26,7 @@ test_dataset = CovidCTDataset(
     transform=val_transforms,
 )
 
-# ---------------------------------------------------------------------------
 # DataLoaders — iteradores de lote para o treinamento
-# ---------------------------------------------------------------------------
 
 # Loader de treino com shuffle (embaralhamento a cada época)
 train_loader = DataLoader(

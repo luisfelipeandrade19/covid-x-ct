@@ -19,16 +19,12 @@ from loaders import val_loader
 from model import SimpleClassifier
 
 if __name__ == "__main__":
-    # -------------------------------------------------------------------
-    # Carregamento do modelo treinado
-    # -------------------------------------------------------------------
-
     # Carrega o melhor checkpoint salvo durante o treino
     checkpoint_path = os.path.join(Config.BASE_PATH, "checkpoints", "best_model.ckpt")
     model = SimpleClassifier.load_from_checkpoint(checkpoint_path)
 
     print("\n--- AVALIAÇÃO FINAL ---")
-    model.eval()    # Coloca o modelo em modo de avaliação (desativa dropout, etc.)
+    model.eval()    # Coloca o modelo em modo de avaliação.
 
     # Listas para acumular predições e rótulos reais
     all_preds, all_labels = [], []
@@ -42,9 +38,7 @@ if __name__ == "__main__":
             all_preds.extend(torch.argmax(logits, dim=1).cpu().numpy())
             all_labels.extend(y.numpy())
 
-    # -------------------------------------------------------------------
     # Relatório de classificação (Precision, Recall, F1-Score)
-    # -------------------------------------------------------------------
     print(
         classification_report(
             all_labels,
@@ -54,9 +48,7 @@ if __name__ == "__main__":
         )
     )
 
-    # -------------------------------------------------------------------
     # Matriz de confusão (valores absolutos)
-    # -------------------------------------------------------------------
     cm = confusion_matrix(all_labels, all_preds)
     plt.figure(figsize=(8, 6))
     sns.heatmap(
@@ -74,9 +66,7 @@ if __name__ == "__main__":
     plt.savefig("confusion_matrix.png")
     plt.show()
 
-    # -------------------------------------------------------------------
     # Matriz de confusão normalizada (proporções por classe real)
-    # -------------------------------------------------------------------
     cm_norm = confusion_matrix(all_labels, all_preds, normalize="true")
     plt.figure(figsize=(8, 6))
     sns.heatmap(
@@ -94,9 +84,7 @@ if __name__ == "__main__":
     plt.savefig("confusion_matrix_normalized.png")
     plt.show()
 
-    # -------------------------------------------------------------------
     # Curvas de treinamento (Loss e Accuracy por época)
-    # -------------------------------------------------------------------
 
     # Detecta automaticamente a última versão do CSVLogger
     logs_dir = Path(Config.BASE_PATH) / "lightning_csv_logs"
@@ -150,9 +138,7 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.savefig("training_curves.png", dpi=300)
 
-    # -------------------------------------------------------------------
     # Curva ROC e AUC (uma curva por classe — One vs Rest)
-    # -------------------------------------------------------------------
     all_probs = []
 
     # Coleta as probabilidades (softmax) de cada amostra
@@ -185,9 +171,7 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.savefig('roc_curve.png', dpi=300)
 
-    # -------------------------------------------------------------------
     # Curva Precision-Recall (uma curva por classe)
-    # -------------------------------------------------------------------
     plt.figure(figsize=(8, 6))
     for i in range(Config.NUM_CLASSES):
         precision, recall, _ = precision_recall_curve(labels_bin[:, i], all_probs[:, i])

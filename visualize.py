@@ -96,10 +96,7 @@ def generate_gradcam(model, image_tensor, target_layer, target_class=None):
 
     return cam, pred_class
 
-
-# ---------------------------------------------------------------------------
 # Sobreposição do heatmap na imagem original
-# ---------------------------------------------------------------------------
 def overlay_heatmap(original_image, heatmap, alpha=0.5):
     """Sobrepõe o heatmap Grad-CAM na imagem original.
 
@@ -133,9 +130,7 @@ def overlay_heatmap(original_image, heatmap, alpha=0.5):
     return result
 
 
-# ---------------------------------------------------------------------------
 # Desnormalização da imagem para visualização
-# ---------------------------------------------------------------------------
 def denormalize(tensor):
     """Reverte a normalização ImageNet para recuperar a imagem visual.
 
@@ -162,9 +157,7 @@ def denormalize(tensor):
     return img_bgr
 
 
-# ---------------------------------------------------------------------------
 # Geração do grid de visualizações Grad-CAM por classe
-# ---------------------------------------------------------------------------
 def generate_gradcam_grid(model, dataloader, target_layer, num_per_class=3):
     """Gera um grid visual com Grad-CAM para exemplos de cada classe.
 
@@ -232,9 +225,7 @@ def generate_gradcam_grid(model, dataloader, target_layer, num_per_class=3):
     print("Salvo em gradcam_grid.png")
 
 
-# ---------------------------------------------------------------------------
 # Execução principal
-# ---------------------------------------------------------------------------
 if __name__ == "__main__":
     # Carrega o melhor checkpoint salvo durante o treino
     checkpoint_path = os.path.join(Config.BASE_PATH, "checkpoints", "best_model.ckpt")

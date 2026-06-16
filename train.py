@@ -12,14 +12,11 @@ from model import SimpleClassifier
 
 
 if __name__ == "__main__":
-    # -------------------------------------------------------------------
-    # Seed — garante reprodutibilidade (random, numpy, torch, CUDA)
-    # -------------------------------------------------------------------
+    # Seed — garante reprodutibilidade
+    
     pl.seed_everything(Config.SEED, workers=True)
 
-    # -------------------------------------------------------------------
     # Callbacks — controlam comportamento durante o treino
-    # -------------------------------------------------------------------
 
     # Barra de progresso rica (visual aprimorado no terminal)
     rich_progress = RichProgressBar()
@@ -42,9 +39,7 @@ if __name__ == "__main__":
         mode="min",
     )
 
-    # -------------------------------------------------------------------
     # Modelo e Logger
-    # -------------------------------------------------------------------
 
     # Instancia o classificador com os hiperparâmetros definidos no Config
     model = SimpleClassifier(
@@ -57,9 +52,7 @@ if __name__ == "__main__":
         name="lightning_csv_logs",
     )
 
-    # -------------------------------------------------------------------
     # Trainer — orquestra o loop de treino
-    # -------------------------------------------------------------------
     trainer = pl.Trainer(
         max_epochs=Config.MAX_EPOCHS,        # Número máximo de épocas
         accelerator="gpu",                   # Utiliza GPU para aceleração
