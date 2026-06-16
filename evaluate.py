@@ -109,17 +109,19 @@ if __name__ == "__main__":
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
 
+    metrics_by_epoch = metrics.groupby("epoch").mean()
+
+    train_loss = metrics_by_epoch["train_loss"].dropna()
+    val_loss = metrics_by_epoch["val_loss"].dropna()
+    train_acc = metrics_by_epoch["train_acc"].dropna()
+    val_acc = metrics_by_epoch["val_acc"].dropna()
+
     # Gráfico de Loss (treino vs validação)
-    ax1.plot(
-        metrics["epoch"].dropna().unique(),
-        metrics.groupby("epoch")["train_loss"].mean().dropna(),
-        label="Treino",
-    )
-    ax1.plot(
-        metrics["epoch"].dropna().unique(),
-        metrics.groupby("epoch")["val_loss"].mean().dropna(),
-        label="Validação",
-    )
+
+    if not train_loss.empty:
+        ax1.plot(train_loss.index, train_loss.values, label="Treino")
+    if not val_loss.empty:
+        ax1.plot(val_loss.index, val_loss.values, label="Validação")
     ax1.set_xlabel("Época")
     ax1.set_ylabel("Loss")
     ax1.set_title("Evolução da Loss")
@@ -127,16 +129,10 @@ if __name__ == "__main__":
     ax1.grid(True, alpha=0.3)
 
     # Gráfico de Accuracy (treino vs validação)
-    ax2.plot(
-        metrics["epoch"].dropna().unique(),
-        metrics.groupby("epoch")["train_acc"].mean().dropna(),
-        label="Treino",
-    )
-    ax2.plot(
-        metrics["epoch"].dropna().unique(),
-        metrics.groupby("epoch")["val_acc"].mean().dropna(),
-        label="Validação",
-    )
+    if not train_acc.empty:
+        ax2.plot(train_acc.index, train_acc.values, label="Treino")
+    if not val_acc.empty:
+        ax2.plot(val_acc.index, val_acc.values, label="Validação")
     ax2.set_xlabel("Época")
     ax2.set_ylabel("Accuracy")
     ax2.set_title("Evolução da Accuracy")
