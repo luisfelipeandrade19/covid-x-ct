@@ -1,4 +1,8 @@
+import logging
+
 import pytorch_lightning as pl
+
+logger = logging.getLogger(__name__)
 
 
 class GradualUnfreezing(pl.Callback):
@@ -56,7 +60,8 @@ class GradualUnfreezing(pl.Callback):
 
             # Log da transição de fase
             stage_blocks = pl_module.UNFREEZE_STAGES[target_stage]
-            print(
-                f"\n>>> [GradualUnfreezing] Época {current_epoch}: "
+            logger.info(
+                f"Época {current_epoch}: "
                 f"descongelando fase {target_stage} — {stage_blocks}"
             )
+

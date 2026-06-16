@@ -1,5 +1,8 @@
+import logging
 import os
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 import matplotlib
 matplotlib.use('Agg')  # Backend sem display (compatível com Docker)
@@ -27,11 +30,11 @@ if __name__ == "__main__":
     model = SimpleClassifier.load_from_checkpoint(checkpoint_path)
 
 
-    print("\n--- AVALIAÇÃO FINAL ---")
+    logger.info("Iniciando avaliação final no conjunto de teste...")
     model.eval()    # Coloca o modelo em modo de avaliação.
 
-    # Listas para acumular predições e rótulos reais
-    all_preds, all_probs, all_labels = [], []
+    # Listas para acumular predições, probabilidades e rótulos reais
+    all_preds, all_probs, all_labels = [], [], []
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
