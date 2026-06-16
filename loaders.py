@@ -34,6 +34,7 @@ train_loader = DataLoader(
     batch_size=Config.BATCH_SIZE,
     shuffle=True,
     num_workers=4,
+    persistent_workers=True,
     pin_memory=True,          # Acelera transferência CPU → GPU
 )
 
@@ -43,6 +44,7 @@ val_loader = DataLoader(
     batch_size=Config.BATCH_SIZE,
     shuffle=False,
     num_workers=4,
+    persistent_workers=True,
     pin_memory=True,
 )
 
@@ -52,5 +54,6 @@ test_loader = DataLoader(
     batch_size=Config.BATCH_SIZE,
     shuffle=False,
     num_workers=4,
+    persistent_workers=True,
     pin_memory=True,
 )
