@@ -15,7 +15,7 @@ from sklearn.preprocessing import label_binarize
 from sklearn.metrics import precision_recall_curve, average_precision_score
 
 from config import Config
-from loaders import val_loader
+from loaders import test_loader
 from model import SimpleClassifier
 
 if __name__ == "__main__":
@@ -27,16 +27,24 @@ if __name__ == "__main__":
     model.eval()    # Coloca o modelo em modo de avaliação.
 
     # Listas para acumular predições e rótulos reais
-    all_preds, all_labels = [], []
+    all_preds, all_probs, all_labels = [], []
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
-    # Inferência sem cálculo de gradientes (economia de memória)
+    # Inferência 
     with torch.no_grad():
-        for x, y in val_loader:
+        for x, y in test_loader:
             logits = model(x.to(device))
-            all_preds.extend(torch.argmax(logits, dim=1).cpu().numpy())
+            # Calcula probabilidades e predições absolutas
+            probs = torch.softmax(logits, dim=1)
+            preds = torch.argmax(logits, dim=1)
+            
+            all_probs.extend(probs.cpu().numpy())
+            all_preds.extend(preds.cpu().numpy())
             all_labels.extend(y.numpy())
+    
+    # Converte probabilidades para array numpy para facilitar indexação nas curvas
+    all_probs = np.array(all_probs)
 
     # Relatório de classificação (Precision, Recall, F1-Score)
     print(
@@ -64,7 +72,7 @@ if __name__ == "__main__":
     plt.ylabel("Real")
     plt.tight_layout()
     plt.savefig("confusion_matrix.png")
-    plt.show()
+    plt.close()
 
     # Matriz de confusão normalizada (proporções por classe real)
     cm_norm = confusion_matrix(all_labels, all_preds, normalize="true")
@@ -82,7 +90,7 @@ if __name__ == "__main__":
     plt.ylabel("Real")
     plt.tight_layout()
     plt.savefig("confusion_matrix_normalized.png")
-    plt.show()
+    plt.close()
 
     # Curvas de treinamento (Loss e Accuracy por época)
 
@@ -138,17 +146,8 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.savefig("training_curves.png", dpi=300)
 
-    # Curva ROC e AUC (uma curva por classe — One vs Rest)
-    all_probs = []
-
-    # Coleta as probabilidades (softmax) de cada amostra
-    with torch.no_grad():
-        for x, y in val_loader:
-            logits = model(x.to(device))
-            probs = torch.softmax(logits, dim=1)
-            all_probs.extend(probs.cpu().numpy())
-
-    all_probs = np.array(all_probs)
+   
+    # --- Curvas ROC e Precision-Recall (Teste) ---
 
     # Binariza os rótulos para cálculo per-classe
     labels_bin = label_binarize(all_labels, classes=[0, 1, 2])
