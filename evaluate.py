@@ -19,9 +19,13 @@ from loaders import test_loader
 from model import SimpleClassifier
 
 if __name__ == "__main__":
+    caminho_outputs = Path(Config.IMG_OUTPUTS_PATH)
+    caminho_outputs.mkdir(parents=True, exist_ok=True)
+
     # Carrega o melhor checkpoint salvo durante o treino
     checkpoint_path = os.path.join(Config.BASE_PATH, "checkpoints", "best_model.ckpt")
     model = SimpleClassifier.load_from_checkpoint(checkpoint_path)
+
 
     print("\n--- AVALIAÇÃO FINAL ---")
     model.eval()    # Coloca o modelo em modo de avaliação.
@@ -71,7 +75,7 @@ if __name__ == "__main__":
     plt.xlabel("Predição")
     plt.ylabel("Real")
     plt.tight_layout()
-    plt.savefig("confusion_matrix.png")
+    plt.savefig(caminho_outputs / "confusion_matrix.png", dpi=300)
     plt.close()
 
     # Matriz de confusão normalizada (proporções por classe real)
@@ -89,7 +93,7 @@ if __name__ == "__main__":
     plt.xlabel("Predição")
     plt.ylabel("Real")
     plt.tight_layout()
-    plt.savefig("confusion_matrix_normalized.png")
+    plt.savefig(caminho_outputs / "confusion_matrix_normalized.png", dpi=300)
     plt.close()
 
     # Curvas de treinamento (Loss e Accuracy por época)
@@ -140,7 +144,7 @@ if __name__ == "__main__":
     ax2.grid(True, alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig("training_curves.png", dpi=300)
+    plt.savefig(caminho_outputs / "training_curves.png", dpi=300)
 
    
     # --- Curvas ROC e Precision-Recall (Teste) ---
@@ -164,7 +168,7 @@ if __name__ == "__main__":
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig('roc_curve.png', dpi=300)
+    plt.savefig(caminho_outputs / 'roc_curve.png', dpi=300)
 
     # Curva Precision-Recall (uma curva por classe)
     plt.figure(figsize=(8, 6))
@@ -179,4 +183,4 @@ if __name__ == "__main__":
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig('precision_recall_curve.png', dpi=300)
+    plt.savefig(caminho_outputs / 'precision_recall_curve.png', dpi=300)
