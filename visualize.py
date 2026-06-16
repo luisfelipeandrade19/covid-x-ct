@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import cv2
 import matplotlib
@@ -15,10 +16,8 @@ from model import SimpleClassifier
 # Nomes das classes para exibição nos gráficos
 CLASSES = ["Normal", "Pneumonia", "COVID-19"]
 
-
-# ---------------------------------------------------------------------------
 # Grad-CAM — Geração do heatmap
-# ---------------------------------------------------------------------------
+
 def generate_gradcam(model, image_tensor, target_layer, target_class=None):
     """Gera o heatmap Grad-CAM para uma única imagem.
 
@@ -220,9 +219,12 @@ def generate_gradcam_grid(model, dataloader, target_layer, num_per_class=3):
 
     plt.suptitle("Grad-CAM — DenseNet161", fontsize=16, fontweight="bold")
     plt.tight_layout()
-    plt.savefig("gradcam_grid.png", dpi=300, bbox_inches="tight")
-    plt.show()
-    print("Salvo em gradcam_grid.png")
+
+    caminho_outputs = Path(Config.IMG_OUTPUTS_PATH)
+    caminho_outputs.mkdir(parents=True, exist_ok=True)
+
+    plt.savefig(caminho_outputs / "gradcam_grid.png", dpi=300, bbox_inches="tight")
+    plt.close()
 
 
 # Execução principal

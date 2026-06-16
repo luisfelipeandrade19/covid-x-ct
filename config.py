@@ -20,3 +20,6 @@ class Config:
     # Caminhos do dataset (retornados pelo KaggleHub)
     BASE_PATH = ctxcovid
     IMAGES_DIR = os.path.join(BASE_PATH, '3A_images')
+
+    # Caminho de outputs
+    IMG_OUTPUTS_PATH = os.path.join(os.getcwd(), 'outputs')
