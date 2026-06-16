@@ -7,10 +7,11 @@ __pycache__/
 # Artefatos de treino
 checkpoints/
 lightning_logs/
+lightning_csv_logs/
 *.ckpt
 
 # Outputs gerados
-matriz-confusao.png
+outputs/
 
 # Node
 package-lock.json

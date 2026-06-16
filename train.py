@@ -1,3 +1,4 @@
+import logging
 import os
 
 import pytorch_lightning as pl
@@ -9,6 +10,14 @@ from callbacks import GradualUnfreezing
 from config import Config
 from loaders import train_loader, val_loader
 from model import SimpleClassifier
+
+# Configura o logging para todo o projeto
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger(__name__)
 
 
 if __name__ == "__main__":
@@ -63,9 +72,6 @@ if __name__ == "__main__":
     )
 
     # Inicia o treinamento com os dataloaders de treino e validação
+    logger.info("Iniciando treinamento...")
     trainer.fit(model, train_loader, val_loader)
-
-    # Carrega o melhor checkpoint salvo durante o treino
-    model = SimpleClassifier.load_from_checkpoint(
-        os.path.join(Config.BASE_PATH, "checkpoints", "best_model.ckpt")
-    )
+    logger.info("Treinamento concluído.")
