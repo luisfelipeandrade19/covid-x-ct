@@ -11,8 +11,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copia os módulos do projeto para o contêiner
 COPY . .
 
-# Configura uma variável de ambiente para o kagglehub salvar os downloads em uma pasta específica
-ENV KAGGLEHUB_CACHE=/app/data
+# Define o caminho do dataset (montado via volume no docker-compose)
+ENV DATASET_PATH=/app/data
 
 # Comando padrão ao iniciar o contêiner
 CMD ["python", "train.py"]

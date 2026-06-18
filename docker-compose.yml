@@ -2,7 +2,11 @@ services:
   classificador:
     build: .
     volumes:
-      - D:\Dataset:/app/data
+      - D:\Dataset:/app/data        # Dataset local montado no contêiner
+      - ./outputs:/app/outputs      # Outputs gerados (gráficos, métricas)
+
+    environment:
+      - DATASET_PATH=/app/data      # Caminho do dataset dentro do contêiner
 
     deploy:
       resources:

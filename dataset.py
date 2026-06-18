@@ -2,7 +2,6 @@ import logging
 import os
 
 import cv2
-import kagglehub
 import pandas as pd
 import torchvision.transforms as transforms
 from PIL import Image
@@ -11,29 +10,29 @@ from torch.utils.data import Dataset
 logger = logging.getLogger(__name__)
 
 
-def download_dataset():
-    """Faz o download do dataset COVIDx CT via KaggleHub.
+def get_dataset_path():
+    """Retorna o caminho do dataset COVIDx CT.
 
-    Utiliza a variável de ambiente DATASET_PATH se definida,
-    caso contrário faz o download via KaggleHub.
+    O caminho é lido da variável de ambiente DATASET_PATH.
+    Se não estiver definida, lança um erro com instruções.
 
     Returns:
-        Caminho raiz do dataset baixado.
+        Caminho raiz do dataset.
     """
-    # Permite sobrescrever o caminho do dataset via variável de ambiente
     env_path = os.environ.get("DATASET_PATH")
     if env_path and os.path.isdir(env_path):
         logger.info(f"Usando dataset local: {env_path}")
         return env_path
 
-    logger.info("Baixando dataset via KaggleHub...")
-    path = kagglehub.dataset_download("hgunraj/covidxct")
-    logger.info(f"Download concluído: {path}")
-    return path
+    raise EnvironmentError(
+        "Variável de ambiente DATASET_PATH não definida ou diretório não encontrado. "
+        "Defina-a com o caminho do dataset COVIDx CT-3A. "
+        "Exemplo: export DATASET_PATH=/app/data"
+    )
 
 
-# Executa o download (lazy: respeita DATASET_PATH se definida)
-ctxcovid = download_dataset()
+# Obtém o caminho do dataset via variável de ambiente
+ctxcovid = get_dataset_path()
 
 
 class CovidCTDataset(Dataset):

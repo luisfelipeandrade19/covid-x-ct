@@ -17,7 +17,7 @@ class Config:
     MAX_EPOCHS = 25              # Número máximo de épocas de treino
     SEED = 42                    # Seed para reprodutibilidade
 
-    # Caminhos do dataset (retornados pelo KaggleHub)
+    # Caminhos do dataset (via variável de ambiente DATASET_PATH)
     BASE_PATH = ctxcovid
     IMAGES_DIR = os.path.join(BASE_PATH, '3A_images')
 

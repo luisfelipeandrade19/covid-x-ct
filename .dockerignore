@@ -11,7 +11,7 @@ lightning_csv_logs/
 *.ckpt
 
 # Outputs gerados
-*.png
+outputs/
 
 # Ambiente
 .env
