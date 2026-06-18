@@ -96,9 +96,29 @@ def generate_gradcam(model, image_tensor, target_layer, target_class=None):
 
 # Grad-CAM++ — Geração do heatmap
 def generate_gradcam_plusplus(model, image_tensor, target_layer, target_class=None):
+    """Gera o heatmap Grad-CAM++ para uma única imagem.
+
+    O Grad-CAM++ é uma extensão do Grad-CAM que utiliza derivadas de
+    segunda e terceira ordem dos gradientes para calcular pesos alpha
+    espacialmente informados, resultando em localização mais precisa
+    e melhor tratamento de múltiplas ocorrências da mesma classe.
+
+    Args:
+        model: modelo carregado (SimpleClassifier).
+        image_tensor: tensor da imagem (1, C, H, W), já normalizado.
+        target_layer: camada convolucional alvo (ex: denseblock4).
+        target_class: classe para a qual gerar o mapa. Se None, usa a predita.
+
+    Returns:
+        heatmap: numpy array (H, W) normalizado em [0, 1].
+        pred_class: índice da classe predita.
+    """
+
+    # Listas para armazenar ativações e gradientes capturados pelos hooks
     activations = []
     gradients = []
 
+    # Hook de forward: captura as ativações da camada alvo
     def hook_activations(module, input, output):
         activations.append(output.detach())
     
@@ -134,7 +154,8 @@ def generate_gradcam_plusplus(model, image_tensor, target_layer, target_class=No
     denominator = torch.where(denominator != 0.0, denominator, torch.ones_like(denominator))
     alpha = grads_power_2 / denominator
 
-    weights = (alpha * F.relu(grads)).sum(dim=(2,3), keepdim=True)
+    # Calcula os pesos alpha espacialmente informados (diferença do Grad-CAM++)
+    weights = (alpha * F.relu(grads)).sum(dim=(2, 3), keepdim=True)
 
     cam = (weights * acts).sum(dim=1, keepdim=True)
 
@@ -277,6 +298,18 @@ def generate_gradcam_grid(model, dataloader, target_layer, num_per_class=3):
 
 # Geração do grid de visualizações Grad-CAM++ por classe
 def generate_gradcam_plusplus_grid(model, dataloader, target_layer, num_per_class=3):
+    """Gera um grid visual com Grad-CAM++ para exemplos de cada classe.
+
+    O grid é organizado como:
+        - Linhas: uma por classe (Normal, Pneumonia, COVID-19)
+        - Colunas: pares (imagem original | Grad-CAM++) para cada amostra
+
+    Args:
+        model: modelo carregado e em modo eval.
+        dataloader: dataloader de validação ou teste.
+        target_layer: camada alvo para o Grad-CAM++ (ex: denseblock4).
+        num_per_class: número de imagens por classe a exibir.
+    """
     device = next(model.parameters()).device
     num_classes = len(CLASSES)
 
