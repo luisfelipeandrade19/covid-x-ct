@@ -17,7 +17,6 @@ from model import SimpleClassifier
 CLASSES = ["Normal", "Pneumonia", "COVID-19"]
 
 # Grad-CAM — Geração do heatmap
-
 def generate_gradcam(model, image_tensor, target_layer, target_class=None):
     """Gera o heatmap Grad-CAM para uma única imagem.
 
@@ -95,6 +94,58 @@ def generate_gradcam(model, image_tensor, target_layer, target_class=None):
 
     return cam, pred_class
 
+# Grad-CAM++ — Geração do heatmap
+def generate_gradcam_plusplus(model, image_tensor, target_layer, target_class=None):
+    activations = []
+    gradients = []
+
+    def hook_activations(module, input, output):
+        activations.append(output.detach())
+    
+    def hook_gradients(module, grad_input, grad_output):
+        gradients.append(grad_output[0].detach())
+    
+    handle_fwd = target_layer.register_forward_hook(hook_activations)
+    handle_bwd = target_layer.register_full_backward_hook(hook_gradients)
+
+    model.eval()
+    output = model(image_tensor)
+    pred_class = output.argmax(dim=1).item()
+
+    target = target_class if target_class is not None else pred_class
+
+    model.zero_grad()
+    score = output[0, target]
+    score.backward()
+
+    handle_fwd.remove()
+    handle_bwd.remove()
+
+    grads = gradients[0]
+    acts = activations[0]
+
+    grads_power_2 = grads ** 2
+    grads_power_3 = grads ** 3
+
+    sum_acts = acts.sum(dim=(2, 3), keepdim=True)
+
+    denominator = 2 * grads_power_2 + sum_acts * grads_power_3
+
+    denominator = torch.where(denominator != 0.0, denominator, torch.ones_like(denominator))
+    alpha = grads_power_2 / denominator
+
+    weights = (alpha * F.relu(grads)).sum(dim=(2,3), keepdim=True)
+
+    cam = (weights * acts).sum(dim=1, keepdim=True)
+
+    cam = F.relu(cam)
+    cam = cam.squeeze().cpu().numpy()
+
+    if cam.max() > 0:
+        cam = cam / cam.max()
+
+    return cam, pred_class
+
 # Sobreposição do heatmap na imagem original
 def overlay_heatmap(original_image, heatmap, alpha=0.5):
     """Sobrepõe o heatmap Grad-CAM na imagem original.
@@ -128,7 +179,6 @@ def overlay_heatmap(original_image, heatmap, alpha=0.5):
 
     return result
 
-
 # Desnormalização da imagem para visualização
 def denormalize(tensor):
     """Reverte a normalização ImageNet para recuperar a imagem visual.
@@ -154,7 +204,6 @@ def denormalize(tensor):
     img_np = (img.permute(1, 2, 0).numpy() * 255).astype(np.uint8)
     img_bgr = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
     return img_bgr
-
 
 # Geração do grid de visualizações Grad-CAM por classe
 def generate_gradcam_grid(model, dataloader, target_layer, num_per_class=3):
@@ -226,6 +275,63 @@ def generate_gradcam_grid(model, dataloader, target_layer, num_per_class=3):
     plt.savefig(caminho_outputs / "gradcam_grid.png", dpi=300, bbox_inches="tight")
     plt.close()
 
+# Geração do grid de visualizações Grad-CAM++ por classe
+def generate_gradcam_plusplus_grid(model, dataloader, target_layer, num_per_class=3):
+    device = next(model.parameters()).device
+    num_classes = len(CLASSES)
+
+    # Coleta amostras de cada classe
+    samples = {c: [] for c in range(num_classes)}
+    for images, labels in dataloader:
+        for img, label in zip(images, labels):
+            c = label.item()
+            if len(samples[c]) < num_per_class:
+                samples[c].append(img)
+
+        # Para quando tiver amostras suficientes de todas as classes
+        if all(len(v) >= num_per_class for v in samples.values()):
+            break
+
+    # Cria o grid: linhas = classes, colunas = (original | gradcam) × num_per_class
+    fig, axes = plt.subplots(
+        num_classes, num_per_class * 2,
+        figsize=(4 * num_per_class * 2, 4 * num_classes),
+    )
+
+    for row, cls in enumerate(range(num_classes)):
+        for col, img_tensor in enumerate(samples[cls]):
+            img_input = img_tensor.unsqueeze(0).to(device)
+
+            # Gera o heatmap Grad-CAM para a classe correspondente
+            heatmap, pred = generate_gradcam_plusplus(model, img_input, target_layer, target_class=cls)
+
+            # Recupera a imagem original (sem normalização)
+            img_original = denormalize(img_tensor)
+            img_original_rgb = cv2.cvtColor(img_original, cv2.COLOR_BGR2RGB)
+
+            # Sobrepõe o heatmap na imagem original
+            img_overlay = overlay_heatmap(img_original, heatmap)
+
+            # Plota a imagem original
+            ax_orig = axes[row, col * 2]
+            ax_orig.imshow(img_original_rgb)
+            ax_orig.set_title(f"{CLASSES[cls]}", fontsize=10)
+            ax_orig.axis("off")
+
+            # Plota o Grad-CAM sobreposto
+            ax_cam = axes[row, col * 2 + 1]
+            ax_cam.imshow(img_overlay)
+            ax_cam.set_title(f"Pred: {CLASSES[pred]}", fontsize=10)
+            ax_cam.axis("off")
+
+    plt.suptitle("Grad-CAM++ — DenseNet161", fontsize=16, fontweight="bold")
+    plt.tight_layout()
+
+    caminho_outputs = Path(Config.IMG_OUTPUTS_PATH)
+    caminho_outputs.mkdir(parents=True, exist_ok=True)
+
+    plt.savefig(caminho_outputs / "gradcam_plusplus_grid.png", dpi=300, bbox_inches="tight")
+    plt.close()
 
 # Execução principal
 if __name__ == "__main__":
@@ -243,3 +349,5 @@ if __name__ == "__main__":
 
     # Gera grid com 3 exemplos por classe
     generate_gradcam_grid(model, val_loader, target_layer, num_per_class=3)
+
+    generate_gradcam_plusplus_grid(model, val_loader, target_layer, num_per_class=3)
