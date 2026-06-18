@@ -160,7 +160,7 @@ if __name__ == "__main__":
     # 3. Avaliação no Teste (Sem Calibração)
     ece_criterion = ECELoss()
     ece_before = ece_criterion(test_logits, test_labels)
-    print(f"\nConjunto de TESTE - ECE ANTES da calibração: {ece_before:.3f}")
+    logger.info(f"\nConjunto de TESTE - ECE ANTES da calibração: {ece_before:.3f}")
     plot_reliability_diagram(test_logits, test_labels, 
                              f"Reliability Diagram (Antes) - ECE: {ece_before:.3f}", 
                              "reliability_diagram_before.png")
@@ -170,7 +170,7 @@ if __name__ == "__main__":
     calibrated_model = ModelWithTemperature(model)
     calibrated_model.to(device)
     
-    print("\n--- Otimizando Temperatura ---")
+    logger.info("\n--- Otimizando Temperatura ---")
     # A mágica acontece aqui: achamos o T no val_loader
     calibrated_model.set_temperature(val_loader, device)
 
@@ -180,7 +180,7 @@ if __name__ == "__main__":
         scaled_test_logits = calibrated_model(test_logits)
 
     ece_after = ece_criterion(scaled_test_logits, test_labels)
-    print(f"\nConjunto de TESTE - ECE DEPOIS da calibração: {ece_after:.3f}")
+    logger.info(f"\nConjunto de TESTE - ECE DEPOIS da calibração: {ece_after:.3f}")
     plot_reliability_diagram(scaled_test_logits, test_labels, 
                              f"Reliability Diagram (Depois) - ECE: {ece_after:.3f}", 
                              "reliability_diagram_after.png")
