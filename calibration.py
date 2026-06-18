@@ -96,4 +96,91 @@ class ModelWithTemperature(nn.Module):
         logger.info(f"Temperatura ideal encontrada: {self.temperature.item():.3f}")
         logger.info(f"Depois da Calibração (Validação) - NLL : {after_temperature_nll:.3f}, ECE: {after_temperature_ece:.3f}")
 
-        
+def plot_reliability_diagram(logits, labels, title, filename, n_bins=10):
+    """ Gera um gráfico comparando confiança predita com acurácia real """
+    softmaxes = torch.softmax(logits, dim=1)
+    confidences, predictions = torch.max(softmaxes, 1)
+    accuracies = predictions.eq(labels)
+
+    bin_boundaries = np.linscape(0,1, n_bins + 1)
+    bin_lowers = bin_boundaries[:-1]
+    bin_uppers = bin_boundaries[1:]
+
+    bin_accuracies, bin_confidences = [], []
+
+    for bin_lower, bin_upper in zip(bin_lowers, bin_uppers):
+        in_bin = (confidences > bin_lower) & (confidences <= bin_upper)
+        if in_bin.any():
+            bin_accuracies.append(accuracies[in_bin].float().mean().item())
+            bin_confidences.append(confidences[in_bin].mean().item())
+        else:
+            bin_accuracies.append(0.0)
+            bin_confidences.append(0.0)
+
+    plt.figure(figsize=(6, 6))
+
+    plt.bar(bin_confidences, bin_accuracies, width=0.1, color='blue', alpha=0.5, label='Modelo')
+
+    # Plota linha vermelha que represanta a 'Perfeição'
+    plt.plot([0, 1], [0, 1], 'r--', label='Calibração Perfeita')
+
+    plt.xlabel('Confiança')
+    plt.ylabel('Acurácia')
+    plt.title(title)
+    plt.xlim(0, 1)
+    plt.ylim(0, 1)
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+
+    caminho_outputs = Path(Config.IMG_OUTPUTS_PATH)
+    caminho_outputs.mkdir(parents=True, exist_ok=True)
+    plt.savefig(caminho_outputs / filename, dpi=300)
+    plt.close()
+
+if __name__ == "__main__":
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    # 1. Carrega o modelo normal
+    checkpoint_path = os.path.join(Config.BASE_PATH, "checkpoints", "best_model.ckpt")
+    model = SimpleClassifier.load_from_checkpoint(checkpoint_path)
+    model.to(device)
+    model.eval()
+
+    # 2. Coleta logits puros do conjunto de TESTE para avaliar o "Antes"
+    test_logits_list, test_labels_list = [], []
+    with torch.no_grad():
+        for x, y in test_loader:
+            logits = model(x.to(device))
+            test_logits_list.append(logits)
+            test_labels_list.append(y.to(device))
+            
+    test_logits = torch.cat(test_logits_list)
+    test_labels = torch.cat(test_labels_list)
+
+    # 3. Avaliação no Teste (Sem Calibração)
+    ece_criterion = ECELoss()
+    ece_before = ece_criterion(test_logits, test_labels)
+    print(f"\nConjunto de TESTE - ECE ANTES da calibração: {ece_before:.3f}")
+    plot_reliability_diagram(test_logits, test_labels, 
+                             f"Reliability Diagram (Antes) - ECE: {ece_before:.3f}", 
+                             "reliability_diagram_before.png")
+
+    # 4. Aplica o Temperature Scaling
+    # Passamos o modelo original para o Wrapper
+    calibrated_model = ModelWithTemperature(model)
+    calibrated_model.to(device)
+    
+    print("\n--- Otimizando Temperatura ---")
+    # A mágica acontece aqui: achamos o T no val_loader
+    calibrated_model.set_temperature(val_loader, device)
+
+    # 5. Avaliação no Teste (Com Calibração)
+    # Aplicamos a temperatura T nos logits de teste
+    with torch.no_grad():
+        scaled_test_logits = calibrated_model(test_logits)
+
+    ece_after = ece_criterion(scaled_test_logits, test_labels)
+    print(f"\nConjunto de TESTE - ECE DEPOIS da calibração: {ece_after:.3f}")
+    plot_reliability_diagram(scaled_test_logits, test_labels, 
+                             f"Reliability Diagram (Depois) - ECE: {ece_after:.3f}", 
+                             "reliability_diagram_after.png")
