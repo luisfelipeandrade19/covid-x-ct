@@ -2,7 +2,9 @@ services:
   classificador:
     build: .
     volumes:
-      - Datasets_LISA:\datasets_covid\covidxct:/app/data  # Dataset do lab montado no contêiner
+      - type: bind
+        source: 'Datasets_LISA:\datasets_covid\covidxct'
+        target: /app/data
       - ./outputs:/app/outputs      # Outputs gerados (gráficos, métricas)
 
     environment:
