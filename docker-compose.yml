@@ -2,7 +2,7 @@ services:
   classificador:
     build: .
     volumes:
-      - D:\Dataset:/app/data        # Dataset local montado no contêiner
+      - Datasets_LISA:\datasets_covid\covidxct:/app/data  # Dataset do lab montado no contêiner
       - ./outputs:/app/outputs      # Outputs gerados (gráficos, métricas)
 
     environment:
