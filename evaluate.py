@@ -116,12 +116,19 @@ if __name__ == "__main__":
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
 
-    metrics_by_epoch = metrics.groupby("epoch").mean()
+    metrics_by_epoch = metrics.groupby("epoch").mean(numeric_only=True)
 
-    train_loss = metrics_by_epoch["train_loss"].dropna()
-    val_loss = metrics_by_epoch["val_loss"].dropna()
-    train_acc = metrics_by_epoch["train_acc"].dropna()
-    val_acc = metrics_by_epoch["val_acc"].dropna()
+    def get_metric(df, *candidate_names):
+        """Busca uma métrica tentando múltiplos nomes de coluna."""
+        for name in candidate_names:
+            if name in df.columns:
+                return df[name].dropna()
+        return pd.Series(dtype=float)  # Retorna série vazia se não encontrar
+
+    train_loss = get_metric(metrics_by_epoch, "train_loss", "train_loss_epoch")
+    val_loss = get_metric(metrics_by_epoch, "val_loss", "val_loss_epoch")
+    train_acc = get_metric(metrics_by_epoch, "train_acc", "train_acc_epoch")
+    val_acc = get_metric(metrics_by_epoch, "val_acc", "val_acc_epoch")
 
     # Gráfico de Loss (treino vs validação)
 
