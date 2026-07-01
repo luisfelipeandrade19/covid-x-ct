@@ -25,9 +25,9 @@ def generate_gradcam(model, image_tensor, target_layer, target_class=None):
     regiões mais importantes da imagem para a decisão do modelo.
 
     Etapas:
-        1. Registra hooks de forward (ativações) e backward (gradientes)
-        2. Executa o forward pass da imagem
-        3. Executa o backward pass do score da classe alvo
+        1. Registra hook de forward para capturar ativações
+        2. Usa retain_grad() para manter gradientes no tensor de ativação
+        3. Executa forward e backward pass
         4. Calcula a média global dos gradientes (pesos por canal)
         5. Combina os pesos com as ativações e aplica ReLU
 
@@ -41,26 +41,22 @@ def generate_gradcam(model, image_tensor, target_layer, target_class=None):
         heatmap: numpy array (H, W) normalizado em [0, 1].
         pred_class: índice da classe predita.
     """
-    # Listas para armazenar ativações e gradientes capturados pelos hooks
-    activations = []
-    gradients = []
+    # Variável para armazenar a ativação capturada pelo hook
+    activation = [None]
 
-    # Hook de forward: captura as ativações da camada alvo
-    def hook_activations(module, input, output):
-        activations.append(output.detach())
+    # Hook de forward: captura as ativações e chama retain_grad()
+    def hook_fn(module, input, output):
+        activation[0] = output
+        output.retain_grad()  # Mantém o gradiente após backward
 
-    # Hook de backward: captura os gradientes da camada alvo
-    def hook_gradients(module, grad_input, grad_output):
-        gradients.append(grad_output[0].detach())
+    # Registra o hook na camada alvo
+    handle = target_layer.register_forward_hook(hook_fn)
 
-    # Registra os hooks na camada alvo
-    handle_fwd = target_layer.register_forward_hook(hook_activations)
-    handle_bwd = target_layer.register_full_backward_hook(hook_gradients)
-
-    # Forward pass (força float32 para compatibilidade com modelos treinados em AMP)
+    # Forward + Backward (força float32 para compatibilidade com AMP)
     model.eval()
     model.float()
     image_tensor = image_tensor.float()
+
     with torch.enable_grad():
         output = model(image_tensor)
         pred_class = output.argmax(dim=1).item()
@@ -73,13 +69,12 @@ def generate_gradcam(model, image_tensor, target_layer, target_class=None):
         score = output[0, target]
         score.backward()
 
-    # Remove os hooks para evitar memory leak
-    handle_fwd.remove()
-    handle_bwd.remove()
+    # Remove o hook para evitar memory leak
+    handle.remove()
 
-    # Recupera as ativações e gradientes capturados
-    grads = gradients[0]
-    acts = activations[0]
+    # Recupera as ativações e gradientes via retain_grad()
+    acts = activation[0].detach()
+    grads = activation[0].grad.detach()
 
     # Calcula os pesos: média global dos gradientes sobre as dimensões espaciais (H, W)
     weights = grads.mean(dim=[2, 3], keepdim=True)
@@ -116,20 +111,16 @@ def generate_gradcam_plusplus(model, image_tensor, target_layer, target_class=No
         heatmap: numpy array (H, W) normalizado em [0, 1].
         pred_class: índice da classe predita.
     """
+    # Variável para armazenar a ativação capturada pelo hook
+    activation = [None]
 
-    # Listas para armazenar ativações e gradientes capturados pelos hooks
-    activations = []
-    gradients = []
+    # Hook de forward: captura as ativações e chama retain_grad()
+    def hook_fn(module, input, output):
+        activation[0] = output
+        output.retain_grad()  # Mantém o gradiente após backward
 
-    # Hook de forward: captura as ativações da camada alvo
-    def hook_activations(module, input, output):
-        activations.append(output.detach())
-    
-    def hook_gradients(module, grad_input, grad_output):
-        gradients.append(grad_output[0].detach())
-    
-    handle_fwd = target_layer.register_forward_hook(hook_activations)
-    handle_bwd = target_layer.register_full_backward_hook(hook_gradients)
+    # Registra o hook na camada alvo
+    handle = target_layer.register_forward_hook(hook_fn)
 
     model.eval()
     model.float()
@@ -144,11 +135,11 @@ def generate_gradcam_plusplus(model, image_tensor, target_layer, target_class=No
         score = output[0, target]
         score.backward()
 
-    handle_fwd.remove()
-    handle_bwd.remove()
+    handle.remove()
 
-    grads = gradients[0]
-    acts = activations[0]
+    # Recupera as ativações e gradientes via retain_grad()
+    acts = activation[0].detach()
+    grads = activation[0].grad.detach()
 
     grads_power_2 = grads ** 2
     grads_power_3 = grads ** 3
