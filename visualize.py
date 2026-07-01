@@ -65,13 +65,13 @@ def generate_gradcam(model, image_tensor, target_layer, target_class=None):
         output = model(image_tensor)
         pred_class = output.argmax(dim=1).item()
 
-    # Define a classe alvo para o backward (predita ou especificada)
-    target = target_class if target_class is not None else pred_class
+        # Define a classe alvo para o backward (predita ou especificada)
+        target = target_class if target_class is not None else pred_class
 
         # Backward pass: calcula os gradientes em relação ao score da classe alvo
-    model.zero_grad()
-    score = output[0, target]
-    score.backward()
+        model.zero_grad()
+        score = output[0, target]
+        score.backward()
 
     # Remove os hooks para evitar memory leak
     handle_fwd.remove()
