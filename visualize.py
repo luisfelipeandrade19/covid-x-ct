@@ -57,18 +57,21 @@ def generate_gradcam(model, image_tensor, target_layer, target_class=None):
     handle_fwd = target_layer.register_forward_hook(hook_activations)
     handle_bwd = target_layer.register_full_backward_hook(hook_gradients)
 
-    # Forward pass
+    # Forward pass (força float32 para compatibilidade com modelos treinados em AMP)
     model.eval()
-    output = model(image_tensor)
-    pred_class = output.argmax(dim=1).item()
+    model.float()
+    image_tensor = image_tensor.float()
+    with torch.enable_grad():
+        output = model(image_tensor)
+        pred_class = output.argmax(dim=1).item()
 
     # Define a classe alvo para o backward (predita ou especificada)
     target = target_class if target_class is not None else pred_class
 
-    # Backward pass: calcula os gradientes em relação ao score da classe alvo
-    model.zero_grad()
-    score = output[0, target]
-    score.backward()
+        # Backward pass: calcula os gradientes em relação ao score da classe alvo
+        model.zero_grad()
+        score = output[0, target]
+        score.backward()
 
     # Remove os hooks para evitar memory leak
     handle_fwd.remove()
@@ -129,14 +132,17 @@ def generate_gradcam_plusplus(model, image_tensor, target_layer, target_class=No
     handle_bwd = target_layer.register_full_backward_hook(hook_gradients)
 
     model.eval()
-    output = model(image_tensor)
-    pred_class = output.argmax(dim=1).item()
+    model.float()
+    image_tensor = image_tensor.float()
+    with torch.enable_grad():
+        output = model(image_tensor)
+        pred_class = output.argmax(dim=1).item()
 
-    target = target_class if target_class is not None else pred_class
+        target = target_class if target_class is not None else pred_class
 
-    model.zero_grad()
-    score = output[0, target]
-    score.backward()
+        model.zero_grad()
+        score = output[0, target]
+        score.backward()
 
     handle_fwd.remove()
     handle_bwd.remove()
