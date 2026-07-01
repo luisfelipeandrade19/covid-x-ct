@@ -1,5 +1,5 @@
 pandas>=2.1.4,<4
-numpy>=1.26.4,<3
+numpy>=1.26.4,<2
 opencv-python-headless>=4.8.1.78,<5
 Pillow>=10.1.0,<13
 torchmetrics>=1.2.1,<2

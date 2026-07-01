@@ -14,7 +14,7 @@ class Config:
     LEARNING_RATE = 0.001        # Taxa de aprendizado inicial
     EPOCHS_PER_STAGE = 5         # Épocas por fase de descongelamento gradual
     MAX_UNFREEZE_STAGE = 4       # Número máximo de fases de descongelamento
-    MAX_EPOCHS = 25              # Número máximo de épocas de treino
+    MAX_EPOCHS = 3               # ⚡ TESTE: reduzido de 25 para 3 (restaurar para treino real)
     SEED = 42                    # Seed para reprodutibilidade
 
     # Caminhos do dataset (via variável de ambiente DATASET_PATH)

@@ -69,6 +69,8 @@ if __name__ == "__main__":
         callbacks=[rich_progress, early_stop, model_checkpoint, gradual_unfreeze],
         logger=csv_logger,
         precision="16-mixed",                # Precisão mista para economia de VRAM
+        limit_train_batches=0.1,             # ⚡ TESTE: usa apenas 10% dos batches de treino
+        limit_val_batches=0.1,               # ⚡ TESTE: usa apenas 10% dos batches de validação
     )
 
     # Inicia o treinamento com os dataloaders de treino e validação

@@ -8,5 +8,8 @@ services:
     environment:
       - DATASET_PATH=/app/data      # Caminho do dataset dentro do contêiner
       - NVIDIA_VISIBLE_DEVICES=all   # Expõe todas as GPUs ao contêiner
+      - PYTHONUNBUFFERED=1           # Força saída em tempo real (sem buffer)
 
     runtime: nvidia
+    tty: true
+    shm_size: '8g'                   # Memória compartilhada para os workers do DataLoader
