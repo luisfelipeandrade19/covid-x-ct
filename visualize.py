@@ -47,7 +47,8 @@ def generate_gradcam(model, image_tensor, target_layer, target_class=None):
     # Hook de forward: captura as ativações e chama retain_grad()
     def hook_fn(module, input, output):
         activation[0] = output
-        output.retain_grad()  # Mantém o gradiente após backward
+        output.requires_grad_(True)   # Força rastreamento de gradientes (camadas congeladas)
+        output.retain_grad()          # Mantém o gradiente após backward
 
     # Registra o hook na camada alvo
     handle = target_layer.register_forward_hook(hook_fn)
@@ -117,7 +118,8 @@ def generate_gradcam_plusplus(model, image_tensor, target_layer, target_class=No
     # Hook de forward: captura as ativações e chama retain_grad()
     def hook_fn(module, input, output):
         activation[0] = output
-        output.retain_grad()  # Mantém o gradiente após backward
+        output.requires_grad_(True)   # Força rastreamento de gradientes (camadas congeladas)
+        output.retain_grad()          # Mantém o gradiente após backward
 
     # Registra o hook na camada alvo
     handle = target_layer.register_forward_hook(hook_fn)
