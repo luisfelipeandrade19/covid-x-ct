@@ -31,7 +31,7 @@ if __name__ == "__main__":
     rich_progress = RichProgressBar()
 
     # Early stopping: para o treino se val_loss não melhorar por 5 épocas
-    early_stop = EarlyStopping(monitor="val_loss", patience=5, mode="min")
+    early_stop = EarlyStopping(monitor="val_loss", patience=10, mode="min")
 
     # Descongelamento gradual da backbone a cada N épocas
     gradual_unfreeze = GradualUnfreezing(
@@ -68,9 +68,7 @@ if __name__ == "__main__":
         devices=1,                           # Número de GPUs a usar
         callbacks=[rich_progress, early_stop, model_checkpoint, gradual_unfreeze],
         logger=csv_logger,
-        precision="16-mixed",                # Precisão mista para economia de VRAM
-        limit_train_batches=0.1,             # ⚡ TESTE: usa apenas 10% dos batches de treino
-        limit_val_batches=0.1,               # ⚡ TESTE: usa apenas 10% dos batches de validação
+        precision="16-mixed",                # Precisão mista para economia de VRAM              
     )
 
     # Inicia o treinamento com os dataloaders de treino e validação
