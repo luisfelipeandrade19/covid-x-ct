@@ -127,7 +127,11 @@ def evaluate_with_tta(model, dataloader, device):
         "tta_probs": np.array(tta_probs),
     }
 
-if __name__ == "__main__":
+def main():
+    """Executa a avaliação com Test-Time Augmentation.
+
+    Gera: tta_comparison.png.
+    """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Carrega o melhor checkpoint salvo durante o treino
@@ -181,3 +185,9 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.savefig(caminho_outputs / "tta_comparison.png", dpi=300)
     plt.close()
+
+    logger.info("TTA concluído.")
+
+
+if __name__ == "__main__":
+    main()

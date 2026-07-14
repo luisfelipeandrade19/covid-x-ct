@@ -365,8 +365,11 @@ def generate_gradcam_plusplus_grid(model, dataloader, target_layer, num_per_clas
     plt.savefig(caminho_outputs / "gradcam_plusplus_grid.png", dpi=300, bbox_inches="tight")
     plt.close()
 
-# Execução principal
-if __name__ == "__main__":
+def main():
+    """Executa a geração de visualizações Grad-CAM e Grad-CAM++.
+
+    Gera: gradcam_grid.png, gradcam_plusplus_grid.png.
+    """
     # Carrega o melhor checkpoint salvo durante o treino
     checkpoint_path = os.path.join(Config.BASE_PATH, "checkpoints", "best_model.ckpt")
     model = SimpleClassifier.load_from_checkpoint(checkpoint_path)
@@ -383,3 +386,7 @@ if __name__ == "__main__":
     generate_gradcam_grid(model, val_loader, target_layer, num_per_class=3)
 
     generate_gradcam_plusplus_grid(model, val_loader, target_layer, num_per_class=3)
+
+
+if __name__ == "__main__":
+    main()

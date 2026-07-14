@@ -21,7 +21,12 @@ from config import Config
 from loaders import test_loader
 from model import SimpleClassifier
 
-if __name__ == "__main__":
+def main():
+    """Executa a avaliação completa no conjunto de teste.
+
+    Gera: confusion_matrix.png, confusion_matrix_normalized.png,
+    training_curves.png, roc_curve.png, precision_recall_curve.png.
+    """
     caminho_outputs = Path(Config.IMG_OUTPUTS_PATH)
     caminho_outputs.mkdir(parents=True, exist_ok=True)
 
@@ -155,6 +160,7 @@ if __name__ == "__main__":
 
     plt.tight_layout()
     plt.savefig(caminho_outputs / "training_curves.png", dpi=300)
+    plt.close()
 
    
     # --- Curvas ROC e Precision-Recall (Teste) ---
@@ -179,6 +185,7 @@ if __name__ == "__main__":
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.savefig(caminho_outputs / 'roc_curve.png', dpi=300)
+    plt.close()
 
     # Curva Precision-Recall (uma curva por classe)
     plt.figure(figsize=(8, 6))
@@ -194,3 +201,10 @@ if __name__ == "__main__":
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.savefig(caminho_outputs / 'precision_recall_curve.png', dpi=300)
+    plt.close()
+
+    logger.info("Avaliação concluída. Gráficos salvos em: %s", caminho_outputs)
+
+
+if __name__ == "__main__":
+    main()

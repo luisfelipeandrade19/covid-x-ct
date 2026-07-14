@@ -212,7 +212,11 @@ def plot_reliability_diagram(logits, labels, title, filename, n_bins=10):
     plt.close()
 
 
-if __name__ == "__main__":
+def main():
+    """Executa a análise de calibração completa.
+
+    Gera: reliability_diagram_before.png, reliability_diagram_after.png.
+    """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Carrega o melhor checkpoint salvo durante o treino
@@ -261,3 +265,9 @@ if __name__ == "__main__":
         f"Reliability Diagram (Depois) - ECE: {ece_after:.3f}",
         "reliability_diagram_after.png",
     )
+
+    logger.info("Calibração concluída.")
+
+
+if __name__ == "__main__":
+    main()
