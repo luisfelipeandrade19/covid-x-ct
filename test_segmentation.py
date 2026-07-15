@@ -11,7 +11,7 @@ import random
 import cv2
 import numpy as np
 import matplotlib
-matplotlib.use('TkAgg')  # Backend com janela (para visualização local)
+matplotlib.use('Agg')  # Backend com janela (para visualização local)
 import matplotlib.pyplot as plt
 
 from dataset import segment_lungs
