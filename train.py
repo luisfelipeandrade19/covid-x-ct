@@ -31,7 +31,7 @@ if __name__ == "__main__":
     rich_progress = RichProgressBar()
 
     # Early stopping: para o treino se val_loss não melhorar por 5 épocas
-    early_stop = EarlyStopping(monitor="val_loss", patience=10, mode="min")
+    early_stop = EarlyStopping(monitor="val_loss", patience=5, mode="min")
 
     # Descongelamento gradual da backbone a cada N épocas
     gradual_unfreeze = GradualUnfreezing(
