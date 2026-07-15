@@ -201,10 +201,12 @@ train_transforms = transforms.Compose(
     [
         transforms.Resize((224, 224)),           # Redimensiona para o tamanho esperado pela DenseNet
         transforms.RandomHorizontalFlip(0.5),    # Flip horizontal aleatório (50% de chance)
-        transforms.RandomRotation(degrees=10),   # Rotação aleatória de até ±10 graus
-        transforms.ColorJitter(brightness=0.2, contrast=0.2),  # Variação de brilho e contraste
+        transforms.RandomAffine(degrees=15, translate=(0.05, 0.05), scale=(0.9, 1.1)),
+        transforms.ColorJitter(brightness=0.3, contrast=0.3),
+        transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 1.0)),
         transforms.ToTensor(),                   # Converte para tensor PyTorch [0, 1]
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),  # Normalização ImageNet
+        transforms.RandomErasing(p=0.15, scale=(0.02, 0.1))
     ]
 )
 
