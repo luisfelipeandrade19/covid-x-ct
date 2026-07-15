@@ -52,7 +52,7 @@ if __name__ == "__main__":
 
     # Instancia o classificador com os hiperparâmetros definidos no Config
     model = SimpleClassifier(
-        num_classes=Config.NUM_CLASSES, learning_rate=Config.LEARNING_RATE
+        num_classes=Config.NUM_CLASSES, learning_rate=Config.LEARNING_RATE, weight_decay=Config.WEIGHT_DECAY,
     )
 
     # Logger CSV: salva métricas de treino/validação a cada época
