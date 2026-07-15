@@ -11,11 +11,13 @@ class Config:
 
     NUM_CLASSES = 3              # Número de classes: Normal, Pneumonia, COVID-19
     BATCH_SIZE = 64              # Tamanho do lote para treino e validação
-    LEARNING_RATE = 0.001        # Taxa de aprendizado inicial
-    EPOCHS_PER_STAGE = 3         # Épocas por fase de descongelamento gradual
+    LEARNING_RATE = 5e-4        # Taxa de aprendizado inicial
+    EPOCHS_PER_STAGE = 4         # Épocas por fase de descongelamento gradual
     MAX_UNFREEZE_STAGE = 4       # Número máximo de fases de descongelamento
     MAX_EPOCHS = 25               
     SEED = 42                    # Seed para reprodutibilidade
+    WEIGHT_DECAY = 1e-4          # Regularização L2
+    USE_SEGMENTED = True         # Se True, aplica segmentação pulmonar algorítmica
 
     # Caminhos do dataset (via variável de ambiente DATASET_PATH)
     BASE_PATH = ctxcovid
