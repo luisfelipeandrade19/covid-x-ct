@@ -112,7 +112,7 @@ class CovidCTDataset(Dataset):
         transform: transformações do torchvision a serem aplicadas.
     """
 
-    def __init__(self, txt_path, img_dir, transform=None):
+    def __init__(self, txt_path, img_dir, transform=None, use_segmented=False):
         # Valida que o arquivo de anotação existe
         if not os.path.isfile(txt_path):
             raise FileNotFoundError(
@@ -129,6 +129,7 @@ class CovidCTDataset(Dataset):
         self.data = pd.read_csv(txt_path, sep=" ", header=None)
         self.img_dir = img_dir
         self.transform = transform
+        self.use_segmented = use_segmented
 
         # Inicializa o CLAHE para realce adaptativo de contraste
         self.clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
