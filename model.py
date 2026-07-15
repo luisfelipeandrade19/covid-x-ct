@@ -5,6 +5,52 @@ import torchmetrics
 import torch
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
+import torch.nn.functional as F
+
+
+class ChannelAttention(nn.Module):
+    def __init__(self, in_planes, ratio=16):
+        super(ChannelAttention, self).__init__()
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.max_pool = nn.AdaptiveMaxPool2d(1)
+           
+        self.fc = nn.Sequential(
+            nn.Conv2d(in_planes, in_planes // ratio, 1, bias=False),
+            nn.ReLU(),
+            nn.Conv2d(in_planes // ratio, in_planes, 1, bias=False)
+        )
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        avg_out = self.fc(self.avg_pool(x))
+        max_out = self.fc(self.max_pool(x))
+        out = avg_out + max_out
+        return self.sigmoid(out)
+
+class SpatialAttention(nn.Module):
+    def __init__(self, kernel_size=7):
+        super(SpatialAttention, self).__init__()
+        self.conv1 = nn.Conv2d(2, 1, kernel_size, padding=kernel_size//2, bias=False)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        avg_out = torch.mean(x, dim=1, keepdim=True)
+        max_out, _ = torch.max(x, dim=1, keepdim=True)
+        x_cat = torch.cat([avg_out, max_out], dim=1)
+        out = self.conv1(x_cat)
+        return self.sigmoid(out)
+
+class CBAM(nn.Module):
+    def __init__(self, in_planes, ratio=16, kernel_size=7):
+        super(CBAM, self).__init__()
+        self.ca = ChannelAttention(in_planes, ratio)
+        self.sa = SpatialAttention(kernel_size)
+
+    def forward(self, x):
+        out = x * self.ca(x)
+        result = out * self.sa(out)
+        return result
+
 
 class SimpleClassifier(pl.LightningModule):
     """Classificador de CT pulmonar baseado em DenseNet161 com descongelamento gradual.
@@ -58,13 +104,17 @@ class SimpleClassifier(pl.LightningModule):
             param.requires_grad = False
 
         # Substitui o classificador original por uma cabeça personalizada
+        in_features = 2208
         self.model.classifier = nn.Sequential(
             nn.Dropout(0.5),                                          # Dropout para regularização
-            nn.Linear(self.model.classifier.in_features, 256),        # Camada intermediária
+            nn.Linear(in_features, 256),                              # Camada intermediária
             nn.ReLU(),                                                # Ativação
             nn.Dropout(0.3),                                          # Segundo dropout
             nn.Linear(256, num_classes),                              # Camada de saída
         )
+
+        # Módulo de Atenção (CBAM) inserido após as features da DenseNet161
+        self.cbam = CBAM(in_planes=in_features)
 
         # Controle da fase atual de descongelamento
         self._current_stage = 0
@@ -98,8 +148,20 @@ class SimpleClassifier(pl.LightningModule):
         self._current_stage = min(stage, len(self.UNFREEZE_STAGES) - 1)
 
     def forward(self, x):
-        """Passa os dados pela DenseNet161."""
-        return self.model(x)
+        """Passa os dados pela DenseNet161 com módulo CBAM embutido."""
+        # Extrai features convolucionais da DenseNet
+        features = self.model.features(x)
+        out = F.relu(features, inplace=True)
+        
+        # Aplica o Módulo de Atenção (ensina o modelo a focar nas patologias e ignorar ossos)
+        out = self.cbam(out)
+        
+        # Faz o pooling global e classificação final
+        out = F.adaptive_avg_pool2d(out, (1, 1))
+        out = torch.flatten(out, 1)
+        out = self.model.classifier(out)
+        
+        return out
 
     def training_step(self, batch, batch_idx):
         """Executa um passo de treino: forward, cálculo de loss e métricas.
@@ -166,6 +228,7 @@ class SimpleClassifier(pl.LightningModule):
         Returns:
             Lista de dicionários com 'params' e 'lr' para o otimizador.
         """
+        
         # Agrupa parâmetros por fase de descongelamento
         stage_params = {s: [] for s in range(len(self.UNFREEZE_STAGES))}
         classifier_params = []
@@ -174,8 +237,8 @@ class SimpleClassifier(pl.LightningModule):
             if not param.requires_grad:
                 continue
 
-            # Parâmetros do classificador vão em grupo separado
-            if 'classifier' in name:
+            # Parâmetros do classificador e CBAM vão em grupo separado
+            if 'classifier' in name or 'cbam' in name:
                 classifier_params.append(param)
                 continue
 

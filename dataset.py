@@ -1,6 +1,5 @@
 import logging
 import os
-import numpy as np
 import cv2
 import pandas as pd
 import torchvision.transforms as transforms
@@ -8,70 +7,6 @@ from PIL import Image
 from torch.utils.data import Dataset
 
 logger = logging.getLogger(__name__)
-
-def segment_lungs(image):
-    """Segmenta os pulmões de uma imagem CT usando processamento de imagem.
-
-    Pipeline:
-        1. Binarização com threshold de Otsu (separa regiões escuras/claras)
-        2. Operações morfológicas para limpar ruído
-        3. Identifica componentes conectados
-        4. Remove componentes que tocam as bordas (fundo da imagem)
-        5. Mantém os 2 maiores componentes (pulmão esquerdo e direito)
-        6. Aplica a máscara na imagem original
-
-    Args:
-        image: numpy array (H, W) em escala de cinza.
-
-    Returns:
-        Imagem com apenas a região pulmonar, fundo zerado (preto).
-    """
-    # 1. Binarização: Otsu encontra automaticamente o melhor threshold
-    _, binary = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-
-    # 2. Operações morfológicas para remover ruído pequeno e fechar buracos
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-    binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel, iterations=2)
-    binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel, iterations=2)
-
-    # 3. Encontra componentes conectados
-    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(binary, connectivity=8)
-
-    # 4. Remove componentes que tocam as bordas (são fundo, não pulmão)
-    h, w = image.shape
-    border_labels = set()
-    for label_id in range(1, num_labels):  # Ignora o fundo (label 0)
-        x, y, bw, bh = stats[label_id, cv2.CC_STAT_LEFT], stats[label_id, cv2.CC_STAT_TOP], \
-                        stats[label_id, cv2.CC_STAT_WIDTH], stats[label_id, cv2.CC_STAT_HEIGHT]
-        # Se o componente toca qualquer borda da imagem
-        if x == 0 or y == 0 or (x + bw) >= w or (y + bh) >= h:
-            border_labels.add(label_id)
-
-    # 5. Filtra: mantém apenas componentes internos, ordenados por área
-    valid_components = []
-    for label_id in range(1, num_labels):
-        if label_id not in border_labels:
-            area = stats[label_id, cv2.CC_STAT_AREA]
-            valid_components.append((label_id, area))
-
-    # Ordena por área decrescente e mantém no máximo os 2 maiores (pulmões)
-    valid_components.sort(key=lambda x: x[1], reverse=True)
-    keep_labels = [comp[0] for comp in valid_components[:2]]
-
-    # 6. Cria a máscara final com apenas os pulmões
-    mask = np.zeros_like(image, dtype=np.uint8)
-    for label_id in keep_labels:
-        mask[labels == label_id] = 255
-
-    # Aplica a máscara: mantém pulmões, zera o resto
-    result = cv2.bitwise_and(image, mask)
-
-    # Fallback: se a segmentação falhou (nenhum componente válido), retorna a original
-    if result.max() == 0:
-        return image
-
-    return result
-
 
 
 def get_dataset_path():
@@ -112,7 +47,7 @@ class CovidCTDataset(Dataset):
         transform: transformações do torchvision a serem aplicadas.
     """
 
-    def __init__(self, txt_path, img_dir, transform=None, use_segmented=False):
+    def __init__(self, txt_path, img_dir, transform=None):
         # Valida que o arquivo de anotação existe
         if not os.path.isfile(txt_path):
             raise FileNotFoundError(
@@ -129,7 +64,6 @@ class CovidCTDataset(Dataset):
         self.data = pd.read_csv(txt_path, sep=" ", header=None)
         self.img_dir = img_dir
         self.transform = transform
-        self.use_segmented = use_segmented
 
         # Inicializa o CLAHE para realce adaptativo de contraste
         self.clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
@@ -171,10 +105,6 @@ class CovidCTDataset(Dataset):
             raise ValueError(
                 f"Imagem não encontrada ou corrompida: {img_path}"
             )
-
-        # Aplica segmentação pulmonar algorítmica (se habilitada)
-        if self.use_segmented:
-           image = segment_lungs(image)
 
         # Aplica CLAHE para intensificar bordas e diferenças nos tecidos
         try:

@@ -17,7 +17,6 @@ class Config:
     MAX_EPOCHS = 25               
     SEED = 42                    # Seed para reprodutibilidade
     WEIGHT_DECAY = 1e-4          # Regularização L2
-    USE_SEGMENTED = False         # Se True, aplica segmentação pulmonar algorítmica
 
     # Caminhos do dataset (via variável de ambiente DATASET_PATH)
     BASE_PATH = ctxcovid

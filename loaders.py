@@ -10,7 +10,6 @@ train_dataset = CovidCTDataset(
     os.path.join(Config.BASE_PATH, "train_COVIDx_CT-3A.txt"),
     Config.IMAGES_DIR,
     transform=train_transforms,
-    use_segmented=Config.USE_SEGMENTED,
 )
 
 # Dataset de validação sem augmentation
@@ -18,7 +17,6 @@ val_dataset = CovidCTDataset(
     os.path.join(Config.BASE_PATH, "val_COVIDx_CT-3A.txt"),
     Config.IMAGES_DIR,
     transform=val_transforms,
-    use_segmented=Config.USE_SEGMENTED,
 )
 
 # Dataset de teste sem augmentation
@@ -26,7 +24,6 @@ test_dataset = CovidCTDataset(
     os.path.join(Config.BASE_PATH, "test_COVIDx_CT-3A.txt"),
     Config.IMAGES_DIR,
     transform=val_transforms,
-    use_segmented=Config.USE_SEGMENTED,
 )
 
 # DataLoaders — iteradores de lote para o treinamento
