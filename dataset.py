@@ -171,6 +171,10 @@ class CovidCTDataset(Dataset):
                 f"Imagem não encontrada ou corrompida: {img_path}"
             )
 
+        # Aplica segmentação pulmonar algorítmica (se habilitada)
+        if self.use_segmented:
+           image = segment_lungs(image)
+
         # Aplica CLAHE para intensificar bordas e diferenças nos tecidos
         try:
             image = self.clahe.apply(image)
