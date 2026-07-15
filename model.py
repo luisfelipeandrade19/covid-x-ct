@@ -28,7 +28,7 @@ class SimpleClassifier(pl.LightningModule):
         ['denseblock1', 'transition1', 'conv0', 'norm0']     # Fase 4: tudo descongelado
     ]
 
-    def __init__(self, num_classes, learning_rate, lr_decay_factor=0.1):
+    def __init__(self, num_classes, learning_rate, lr_decay_factor=0.1, weight_decay=1e-4):
         """Inicializa o classificador.
 
         Args:
@@ -40,9 +40,15 @@ class SimpleClassifier(pl.LightningModule):
         self.save_hyperparameters()
         self.learning_rate = learning_rate
         self.lr_decay_factor = lr_decay_factor
+        self.weight_decay = weight_decay
 
-        # Função de perda com label smoothing para regularização
-        self.criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
+        # Função de perda com pesos inversamente proporcionais à frequência
+        # Normal=17922 (53%), Pneumonia=7965 (24%), COVID=7894 (23%)
+        # Peso = total / (n_classes * count)   →   penaliza mais erros nas classes menores
+        class_weights = torch.tensor([0.63, 1.41, 1.43])
+        self.criterion = nn.CrossEntropyLoss(
+            weight=class_weights, label_smoothing=0.1
+       )
 
         # Carrega a DenseNet161 com pesos pré-treinados do ImageNet
         self.model = densenet161(weights=DenseNet161_Weights.DEFAULT)
@@ -53,11 +59,11 @@ class SimpleClassifier(pl.LightningModule):
 
         # Substitui o classificador original por uma cabeça personalizada
         self.model.classifier = nn.Sequential(
-            nn.Dropout(0.3),                                          # Dropout para regularização
-            nn.Linear(self.model.classifier.in_features, 512),        # Camada intermediária
+            nn.Dropout(0.5),                                          # Dropout para regularização
+            nn.Linear(self.model.classifier.in_features, 256),        # Camada intermediária
             nn.ReLU(),                                                # Ativação
-            nn.Dropout(0.2),                                          # Segundo dropout
-            nn.Linear(512, num_classes),                              # Camada de saída
+            nn.Dropout(0.3),                                          # Segundo dropout
+            nn.Linear(256, num_classes),                              # Camada de saída
         )
 
         # Controle da fase atual de descongelamento
@@ -146,7 +152,7 @@ class SimpleClassifier(pl.LightningModule):
             Dicionário com otimizador e scheduler monitorando val_loss.
         """
         param_groups = self._build_param_groups()
-        optimizer = torch.optim.AdamW(param_groups, lr=self.learning_rate)
+        optimizer = torch.optim.AdamW(param_groups, lr=self.learning_rate, weight_decay=self.weight_decay)
         scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=3)
         return {"optimizer": optimizer, "lr_scheduler": {"scheduler": scheduler, "monitor": "val_loss"}}
 
