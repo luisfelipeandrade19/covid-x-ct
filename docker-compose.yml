@@ -1,6 +1,7 @@
 services:
   classificador:
     build: .
+    network_mode: "host"
     volumes:
       - /media/riccelli/Datasets_LISA/datasets_covid/covidxct:/app/data  # Dataset do lab
       - ./outputs:/app/outputs      # Outputs gerados (gráficos, métricas)
