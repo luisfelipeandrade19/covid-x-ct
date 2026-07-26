@@ -14,7 +14,7 @@ class Config:
     LEARNING_RATE = 5e-4        # Taxa de aprendizado inicial
     EPOCHS_PER_STAGE = 4         # Épocas por fase de descongelamento gradual
     MAX_UNFREEZE_STAGE = 4       # Número máximo de fases de descongelamento
-    MAX_EPOCHS = 25               
+    MAX_EPOCHS = 40               # Aumentado para dar tempo ao CBAM de aprender               
     SEED = 42                    # Seed para reprodutibilidade
     WEIGHT_DECAY = 1e-4          # Regularização L2
 

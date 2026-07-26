@@ -88,13 +88,8 @@ class SimpleClassifier(pl.LightningModule):
         self.lr_decay_factor = lr_decay_factor
         self.weight_decay = weight_decay
 
-        # Função de perda com pesos inversamente proporcionais à frequência
-        # Normal=17922 (53%), Pneumonia=7965 (24%), COVID=7894 (23%)
-        # Peso = total / (n_classes * count)   →   penaliza mais erros nas classes menores
-        class_weights = torch.tensor([0.63, 1.41, 1.43])
-        self.criterion = nn.CrossEntropyLoss(
-            weight=class_weights, label_smoothing=0.1
-       )
+        # Função de perda com label smoothing para regularização
+        self.criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
 
         # Carrega a DenseNet161 com pesos pré-treinados do ImageNet
         self.model = densenet161(weights=DenseNet161_Weights.DEFAULT)
@@ -114,7 +109,7 @@ class SimpleClassifier(pl.LightningModule):
         )
 
         # Módulo de Atenção (CBAM) inserido após as features da DenseNet161
-        self.cbam = CBAM(in_planes=in_features)
+        self.cbam = CBAM(in_planes=in_features, ratio=8)
 
         # Controle da fase atual de descongelamento
         self._current_stage = 0

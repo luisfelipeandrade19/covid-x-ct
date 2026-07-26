@@ -30,8 +30,8 @@ if __name__ == "__main__":
     # Barra de progresso rica (visual aprimorado no terminal)
     rich_progress = RichProgressBar()
 
-    # Early stopping: para o treino se val_loss não melhorar por 5 épocas
-    early_stop = EarlyStopping(monitor="val_loss", patience=5, mode="min")
+    # Early stopping: para o treino se val_loss não melhorar por 8 épocas
+    early_stop = EarlyStopping(monitor="val_loss", patience=8, mode="min")
 
     # Descongelamento gradual da backbone a cada N épocas
     gradual_unfreeze = GradualUnfreezing(
