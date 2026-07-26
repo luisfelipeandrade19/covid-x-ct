@@ -371,7 +371,7 @@ def main():
     Gera: gradcam_grid.png, gradcam_plusplus_grid.png.
     """
     # Carrega o melhor checkpoint salvo durante o treino
-    checkpoint_path = os.path.join(Config.BASE_PATH, "checkpoints", "best_model.ckpt")
+    checkpoint_path = Config.get_latest_checkpoint()
     model = SimpleClassifier.load_from_checkpoint(checkpoint_path)
     model.eval()
 

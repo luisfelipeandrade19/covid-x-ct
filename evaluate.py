@@ -31,7 +31,7 @@ def main():
     caminho_outputs.mkdir(parents=True, exist_ok=True)
 
     # Carrega o melhor checkpoint salvo durante o treino
-    checkpoint_path = os.path.join(Config.BASE_PATH, "checkpoints", "best_model.ckpt")
+    checkpoint_path = Config.get_latest_checkpoint()
     model = SimpleClassifier.load_from_checkpoint(checkpoint_path)
 
 

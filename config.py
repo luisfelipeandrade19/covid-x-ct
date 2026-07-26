@@ -24,3 +24,18 @@ class Config:
 
     # Caminho de outputs
     IMG_OUTPUTS_PATH = os.path.join(os.getcwd(), 'outputs')
+
+    @classmethod
+    def get_latest_checkpoint(cls):
+        """Retorna o caminho para o checkpoint mais recente gerado pelo ModelCheckpoint."""
+        from pathlib import Path
+        checkpoints_dir = Path(cls.BASE_PATH) / "checkpoints"
+        if not checkpoints_dir.exists():
+            raise FileNotFoundError(f"Diretório de checkpoints não encontrado: {checkpoints_dir}")
+        
+        # Pega todos os .ckpt, ordenados por data de modificação
+        checkpoints = sorted(checkpoints_dir.glob("*.ckpt"), key=lambda p: p.stat().st_mtime)
+        if not checkpoints:
+            raise FileNotFoundError(f"Nenhum arquivo .ckpt encontrado em {checkpoints_dir}")
+        
+        return str(checkpoints[-1])
