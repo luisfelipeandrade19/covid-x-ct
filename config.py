@@ -48,4 +48,4 @@ class Config:
             raise FileNotFoundError(f"Nenhum arquivo .ckpt encontrado em {checkpoints_dir}")
         
         return str(checkpoints[-1])
-
+
