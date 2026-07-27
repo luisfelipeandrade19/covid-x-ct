@@ -9,27 +9,36 @@ class Config:
     facilitar ajustes e garantir consistência entre os módulos.
     """
 
+    # ── Identificação do experimento ──
+    EXPERIMENT_NAME = "frozen_backbone"   # Mude para cada experimento
+
+    # ── Hiperparâmetros ──
     NUM_CLASSES = 3              # Número de classes: Normal, Pneumonia, COVID-19
     BATCH_SIZE = 64              # Tamanho do lote para treino e validação
-    LEARNING_RATE = 5e-4        # Taxa de aprendizado inicial
-    EPOCHS_PER_STAGE = 4         # Épocas por fase de descongelamento gradual
-    MAX_UNFREEZE_STAGE = 4       # Número máximo de fases de descongelamento
-    MAX_EPOCHS = 40               # Aumentado para dar tempo ao CBAM de aprender               
+    LEARNING_RATE = 5e-4         # Taxa de aprendizado inicial
+    MAX_EPOCHS = 20              # Backbone congelada converge mais rápido
     SEED = 42                    # Seed para reprodutibilidade
     WEIGHT_DECAY = 1e-4          # Regularização L2
 
-    # Caminhos do dataset (via variável de ambiente DATASET_PATH)
+    # ── Gradual Unfreezing ──
+    USE_GRADUAL_UNFREEZING = False  # False = backbone 100% congelada
+    EPOCHS_PER_STAGE = 4            # Épocas por fase de descongelamento gradual
+    MAX_UNFREEZE_STAGE = 4          # Número máximo de fases de descongelamento
+
+    # ── Caminhos do dataset (via variável de ambiente DATASET_PATH) ──
     BASE_PATH = ctxcovid
     IMAGES_DIR = os.path.join(BASE_PATH, '3A_images')
 
-    # Caminho de outputs
-    IMG_OUTPUTS_PATH = os.path.join(os.getcwd(), 'outputs')
+    # ── Caminhos de outputs (separados por experimento) ──
+    IMG_OUTPUTS_PATH = os.path.join(os.getcwd(), 'outputs', EXPERIMENT_NAME)
+    CHECKPOINTS_DIR = os.path.join(BASE_PATH, 'checkpoints', EXPERIMENT_NAME)
+    LOGS_DIR = os.path.join(BASE_PATH, 'lightning_csv_logs', EXPERIMENT_NAME)
 
     @classmethod
     def get_latest_checkpoint(cls):
         """Retorna o caminho para o checkpoint mais recente gerado pelo ModelCheckpoint."""
         from pathlib import Path
-        checkpoints_dir = Path(cls.BASE_PATH) / "checkpoints"
+        checkpoints_dir = Path(cls.CHECKPOINTS_DIR)
         if not checkpoints_dir.exists():
             raise FileNotFoundError(f"Diretório de checkpoints não encontrado: {checkpoints_dir}")
         
@@ -38,4 +47,5 @@ class Config:
         if not checkpoints:
             raise FileNotFoundError(f"Nenhum arquivo .ckpt encontrado em {checkpoints_dir}")
         
-        return str(checkpoints[-1])
+        return str(checkpoints[-1])
+

@@ -5,8 +5,6 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, RichProgressBar
 from pytorch_lightning.loggers import CSVLogger
 
-from callbacks import GradualUnfreezing
-
 from config import Config
 from loaders import train_loader, val_loader
 from model import SimpleClassifier
@@ -25,6 +23,9 @@ if __name__ == "__main__":
     
     pl.seed_everything(Config.SEED, workers=True)
 
+    logger.info(f"Experimento: {Config.EXPERIMENT_NAME}")
+    logger.info(f"Gradual Unfreezing: {'ATIVADO' if Config.USE_GRADUAL_UNFREEZING else 'DESATIVADO'}")
+
     # Callbacks — controlam comportamento durante o treino
 
     # Barra de progresso rica (visual aprimorado no terminal)
@@ -33,20 +34,25 @@ if __name__ == "__main__":
     # Early stopping: para o treino se val_loss não melhorar por 8 épocas
     early_stop = EarlyStopping(monitor="val_loss", patience=8, mode="min")
 
-    # Descongelamento gradual da backbone a cada N épocas
-    gradual_unfreeze = GradualUnfreezing(
-        epochs_per_stage=Config.EPOCHS_PER_STAGE,
-        max_stage=Config.MAX_UNFREEZE_STAGE,
-    )
-
     # Salva o melhor modelo com base na val_loss
     model_checkpoint = ModelCheckpoint(
         monitor="val_loss",
-        dirpath=os.path.join(Config.BASE_PATH, "checkpoints"),
+        dirpath=Config.CHECKPOINTS_DIR,
         filename="best_model",
         save_top_k=1,           # Mantém apenas o melhor checkpoint
         mode="min",
     )
+
+    # Lista de callbacks (gradual unfreezing é condicional)
+    callbacks = [rich_progress, early_stop, model_checkpoint]
+
+    if Config.USE_GRADUAL_UNFREEZING:
+        from callbacks import GradualUnfreezing
+        gradual_unfreeze = GradualUnfreezing(
+            epochs_per_stage=Config.EPOCHS_PER_STAGE,
+            max_stage=Config.MAX_UNFREEZE_STAGE,
+        )
+        callbacks.append(gradual_unfreeze)
 
     # Modelo e Logger
 
@@ -57,8 +63,8 @@ if __name__ == "__main__":
 
     # Logger CSV: salva métricas de treino/validação a cada época
     csv_logger = CSVLogger(
-        save_dir=Config.BASE_PATH,
-        name="lightning_csv_logs",
+        save_dir=Config.LOGS_DIR,
+        name="",
     )
 
     # Trainer — orquestra o loop de treino
@@ -66,7 +72,7 @@ if __name__ == "__main__":
         max_epochs=Config.MAX_EPOCHS,        # Número máximo de épocas
         accelerator="gpu",                   # Utiliza GPU para aceleração
         devices=1,                           # Número de GPUs a usar
-        callbacks=[rich_progress, early_stop, model_checkpoint, gradual_unfreeze],
+        callbacks=callbacks,
         logger=csv_logger,
         precision="16-mixed",                # Precisão mista para economia de VRAM              
     )
@@ -75,3 +81,4 @@ if __name__ == "__main__":
     logger.info("Iniciando treinamento...")
     trainer.fit(model, train_loader, val_loader)
     logger.info("Treinamento concluído.")
+

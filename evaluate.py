@@ -107,7 +107,7 @@ def main():
     # Curvas de treinamento (Loss e Accuracy por época)
 
     # Detecta automaticamente a última versão do CSVLogger
-    logs_dir = Path(Config.BASE_PATH) / "lightning_csv_logs"
+    logs_dir = Path(Config.LOGS_DIR)
     versions = sorted(
         [d for d in logs_dir.iterdir() if d.is_dir() and d.name.startswith("version_")],
         key=lambda p: int(p.name.split("_")[-1]),
