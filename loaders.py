@@ -1,28 +1,27 @@
 from config import Config
 from dataset import CovidCTDataset, train_transforms, val_transforms
 from torch.utils.data import DataLoader
-import os
 
 # Datasets — instâncias do CovidCTDataset para cada split
 
 # Dataset de treino com augmentation (flip, rotação, jitter)
 train_dataset = CovidCTDataset(
-    os.path.join(Config.BASE_PATH, "train_COVIDx_CT-3A.txt"),
-    Config.IMAGES_DIR,
+    Config.TRAIN_TXT,
+    Config.IMAGES_DIR_TRAIN,
     transform=train_transforms,
 )
 
 # Dataset de validação sem augmentation
 val_dataset = CovidCTDataset(
-    os.path.join(Config.BASE_PATH, "val_COVIDx_CT-3A.txt"),
-    Config.IMAGES_DIR,
+    Config.VAL_TXT,
+    Config.IMAGES_DIR_TRAIN,       # Val usa o mesmo diretório de imagens que treino
     transform=val_transforms,
 )
 
 # Dataset de teste sem augmentation
 test_dataset = CovidCTDataset(
-    os.path.join(Config.BASE_PATH, "test_COVIDx_CT-3A.txt"),
-    Config.IMAGES_DIR,
+    Config.TEST_TXT,
+    Config.IMAGES_DIR_TEST,        # Teste pode usar diretório diferente (segmentação)
     transform=val_transforms,
 )
 

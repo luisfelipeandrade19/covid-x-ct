@@ -10,24 +10,32 @@ class Config:
     """
 
     # ── Identificação do experimento ──
-    EXPERIMENT_NAME = "frozen_backbone"   # Mude para cada experimento
+    EXPERIMENT_NAME = "original_filtered"   # Mude para cada experimento
 
     # ── Hiperparâmetros ──
     NUM_CLASSES = 3              # Número de classes: Normal, Pneumonia, COVID-19
     BATCH_SIZE = 64              # Tamanho do lote para treino e validação
     LEARNING_RATE = 5e-4         # Taxa de aprendizado inicial
-    MAX_EPOCHS = 20              # Backbone congelada converge mais rápido
+    MAX_EPOCHS = 40              # Épocas máximas
     SEED = 42                    # Seed para reprodutibilidade
     WEIGHT_DECAY = 1e-4          # Regularização L2
 
     # ── Gradual Unfreezing ──
-    USE_GRADUAL_UNFREEZING = False  # False = backbone 100% congelada
+    USE_GRADUAL_UNFREEZING = True   # True = descongelamento gradual ativado
     EPOCHS_PER_STAGE = 4            # Épocas por fase de descongelamento gradual
     MAX_UNFREEZE_STAGE = 4          # Número máximo de fases de descongelamento
 
     # ── Caminhos do dataset (via variável de ambiente DATASET_PATH) ──
     BASE_PATH = ctxcovid
-    IMAGES_DIR = os.path.join(BASE_PATH, '3A_images')
+
+    # ── Diretórios de imagens (separados para suportar segmentação) ──
+    IMAGES_DIR_TRAIN = os.path.join(BASE_PATH, '3A_images')        # Imagens de treino/val
+    IMAGES_DIR_TEST = os.path.join(BASE_PATH, '3A_images')         # Imagens de teste
+
+    # ── Arquivos de anotação ──
+    TRAIN_TXT = os.path.join(BASE_PATH, 'train_filtered.txt')
+    VAL_TXT = os.path.join(BASE_PATH, 'val_filtered.txt')
+    TEST_TXT = os.path.join(BASE_PATH, 'test_filtered.txt')
 
     # ── Caminhos de outputs (separados por experimento) ──
     IMG_OUTPUTS_PATH = os.path.join(os.getcwd(), 'outputs', EXPERIMENT_NAME)
@@ -48,4 +56,3 @@ class Config:
             raise FileNotFoundError(f"Nenhum arquivo .ckpt encontrado em {checkpoints_dir}")
         
         return str(checkpoints[-1])
-
