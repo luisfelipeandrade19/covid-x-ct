@@ -47,7 +47,7 @@ class CovidCTDataset(Dataset):
         transform: transformações do torchvision a serem aplicadas.
     """
 
-    def __init__(self, txt_path, img_dir, transform=None):
+    def __init__(self, txt_path, img_dir, transform=None, is_segmented=True):
         # Valida que o arquivo de anotação existe
         if not os.path.isfile(txt_path):
             raise FileNotFoundError(
@@ -64,6 +64,7 @@ class CovidCTDataset(Dataset):
         self.data = pd.read_csv(txt_path, sep=" ", header=None)
         self.img_dir = img_dir
         self.transform = transform
+        self.is_segmented = is_segmented
 
         # Inicializa o CLAHE para realce adaptativo de contraste
         self.clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
@@ -107,11 +108,12 @@ class CovidCTDataset(Dataset):
             )
 
         # Encontra o bounding box da área não-zero e recorta
-        # Foca apenas no pulmão, removendo o fundo preto desnecessário
-        coords = cv2.findNonZero(image)
-        if coords is not None:
-            x, y, w, h = cv2.boundingRect(coords)
-            image = image[y:y+h, x:x+w]
+        # Foca apenas no pulmão se o dataset for segmentado, removendo o fundo preto desnecessário
+        if self.is_segmented:
+            coords = cv2.findNonZero(image)
+            if coords is not None:
+                x, y, w, h = cv2.boundingRect(coords)
+                image = image[y:y+h, x:x+w]
 
         # Aplica CLAHE para intensificar bordas e diferenças nos tecidos
         try:

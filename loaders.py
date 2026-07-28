@@ -9,6 +9,7 @@ train_dataset = CovidCTDataset(
     Config.TRAIN_TXT,
     Config.IMAGES_DIR_TRAIN,
     transform=train_transforms,
+    is_segmented=Config.USE_SEGMENTED_DATA
 )
 
 # Dataset de validação sem augmentation
@@ -16,6 +17,7 @@ val_dataset = CovidCTDataset(
     Config.VAL_TXT,
     Config.IMAGES_DIR_TRAIN,       # Val usa o mesmo diretório de imagens que treino
     transform=val_transforms,
+    is_segmented=Config.USE_SEGMENTED_DATA
 )
 
 # Dataset de teste sem augmentation
@@ -23,6 +25,7 @@ test_dataset = CovidCTDataset(
     Config.TEST_TXT,
     Config.IMAGES_DIR_TEST,        # Teste pode usar diretório diferente (segmentação)
     transform=val_transforms,
+    is_segmented=Config.USE_SEGMENTED_DATA
 )
 
 # DataLoaders — iteradores de lote para o treinamento

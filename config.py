@@ -10,7 +10,12 @@ class Config:
     """
 
     # ── Identificação do experimento ──
-    EXPERIMENT_NAME = "lung_segmented_gu"   # Mude para cada experimento
+    # Controle primário para as 4 abordagens
+    USE_SEGMENTED_DATA = True       # True = Dataset Segmentado, False = Dataset Completo
+    USE_GRADUAL_UNFREEZING = True   # True = Descongelamento Gradual ativado, False = Padrão
+    
+    # Nome gerado automaticamente (ex: SEG_GU, SEG_NOGU, FULL_GU, FULL_NOGU)
+    EXPERIMENT_NAME = f"{'SEG' if USE_SEGMENTED_DATA else 'FULL'}_{'GU' if USE_GRADUAL_UNFREEZING else 'NOGU'}"
 
     # ── Hiperparâmetros ──
     NUM_CLASSES = 3              # Número de classes: Normal, Pneumonia, COVID-19
@@ -21,16 +26,15 @@ class Config:
     WEIGHT_DECAY = 1e-4          # Regularização L2
 
     # ── Gradual Unfreezing ──
-    USE_GRADUAL_UNFREEZING = True   # True = descongelamento gradual ativado
     EPOCHS_PER_STAGE = 4            # Épocas por fase de descongelamento gradual
     MAX_UNFREEZE_STAGE = 4          # Número máximo de fases de descongelamento
 
     # ── Caminhos do dataset (via variável de ambiente DATASET_PATH) ──
     BASE_PATH = ctxcovid
 
-    # ── Diretórios de imagens (separados para suportar segmentação) ──
-    IMAGES_DIR_TRAIN = os.path.join(BASE_PATH, '3A_images_segmented')        # Imagens de treino/val
-    IMAGES_DIR_TEST = os.path.join(BASE_PATH, '3A_test_images_segmented')         # Imagens de teste
+    # ── Diretórios de imagens (dinâmicos baseado na flag) ──
+    IMAGES_DIR_TRAIN = os.path.join(BASE_PATH, '3A_images_segmented' if USE_SEGMENTED_DATA else '3A_images')
+    IMAGES_DIR_TEST = os.path.join(BASE_PATH, '3A_test_images_segmented' if USE_SEGMENTED_DATA else '3A_test_images')
 
     # ── Arquivos de anotação ──
     TRAIN_TXT = os.path.join(BASE_PATH, 'train_filtered.txt')
