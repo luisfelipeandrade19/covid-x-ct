@@ -149,14 +149,14 @@ def main():
     logger.info("=== Resultados SEM TTA ===")
     print(classification_report(
         results["labels"], results["normal_preds"],
-        target_names=class_names, digits=4,
+        target_names=class_names, digits=4, zero_division=0.0,
     ))
 
     # Relatório de classificação — Com TTA
     logger.info("=== Resultados COM TTA ===")
     print(classification_report(
         results["labels"], results["tta_preds"],
-        target_names=class_names, digits=4,
+        target_names=class_names, digits=4, zero_division=0.0,
     ))
 
     # Matrizes de confusão lado a lado

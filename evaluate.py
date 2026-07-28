@@ -65,6 +65,7 @@ def main():
             all_preds,
             target_names=["Normal", "Pneumonia", "COVID-19"],
             digits=4,
+            zero_division=0.0,
         )
     )
 
