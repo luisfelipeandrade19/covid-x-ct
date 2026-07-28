@@ -10,7 +10,7 @@ class Config:
     """
 
     # ── Identificação do experimento ──
-    EXPERIMENT_NAME = "original_filtered"   # Mude para cada experimento
+    EXPERIMENT_NAME = "lung_segmented_gu"   # Mude para cada experimento
 
     # ── Hiperparâmetros ──
     NUM_CLASSES = 3              # Número de classes: Normal, Pneumonia, COVID-19
@@ -29,8 +29,8 @@ class Config:
     BASE_PATH = ctxcovid
 
     # ── Diretórios de imagens (separados para suportar segmentação) ──
-    IMAGES_DIR_TRAIN = os.path.join(BASE_PATH, '3A_images')        # Imagens de treino/val
-    IMAGES_DIR_TEST = os.path.join(BASE_PATH, '3A_images')         # Imagens de teste
+    IMAGES_DIR_TRAIN = os.path.join(BASE_PATH, '3A_images_segmented')        # Imagens de treino/val
+    IMAGES_DIR_TEST = os.path.join(BASE_PATH, '3A_test_images_segmented')         # Imagens de teste
 
     # ── Arquivos de anotação ──
     TRAIN_TXT = os.path.join(BASE_PATH, 'train_filtered.txt')
