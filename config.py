@@ -34,7 +34,7 @@ class Config:
 
     # ── Diretórios de imagens (dinâmicos baseado na flag) ──
     IMAGES_DIR_TRAIN = os.path.join(BASE_PATH, '3A_images_segmented' if USE_SEGMENTED_DATA else '3A_images')
-    IMAGES_DIR_TEST = os.path.join(BASE_PATH, '3A_test_images_segmented' if USE_SEGMENTED_DATA else '3A_test_images')
+    IMAGES_DIR_TEST = os.path.join(BASE_PATH, '3A_test_images_segmented' if USE_SEGMENTED_DATA else '3A_images')
 
     # ── Arquivos de anotação ──
     TRAIN_TXT = os.path.join(BASE_PATH, 'train_filtered.txt')
