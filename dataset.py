@@ -106,6 +106,13 @@ class CovidCTDataset(Dataset):
                 f"Imagem não encontrada ou corrompida: {img_path}"
             )
 
+        # Encontra o bounding box da área não-zero e recorta
+        # Foca apenas no pulmão, removendo o fundo preto desnecessário
+        coords = cv2.findNonZero(image)
+        if coords is not None:
+            x, y, w, h = cv2.boundingRect(coords)
+            image = image[y:y+h, x:x+w]
+
         # Aplica CLAHE para intensificar bordas e diferenças nos tecidos
         try:
             image = self.clahe.apply(image)
