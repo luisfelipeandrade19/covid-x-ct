@@ -59,6 +59,7 @@ def main():
     all_probs = np.array(all_probs)
 
     # Relatório de classificação (Precision, Recall, F1-Score)
+    # Relatório de classificação (Precision, Recall, F1-Score)
     print(
         classification_report(
             all_labels,
@@ -68,6 +69,22 @@ def main():
             zero_division=0.0,
         )
     )
+
+    # Salva o relatório de classificação como imagem (PNG)
+    report_dict = classification_report(
+        all_labels,
+        all_preds,
+        target_names=["Normal", "Pneumonia", "COVID-19"],
+        output_dict=True,
+        zero_division=0.0,
+    )
+    df_report = pd.DataFrame(report_dict).transpose()
+    plt.figure(figsize=(10, 6))
+    sns.heatmap(df_report.iloc[:-1, :].astype(float), annot=True, cmap="Blues", fmt=".4f")
+    plt.title("Relatório de Classificação")
+    plt.tight_layout()
+    plt.savefig(caminho_outputs / "classification_report.png", dpi=300)
+    plt.close()
 
     # Matriz de confusão (valores absolutos)
     cm = confusion_matrix(all_labels, all_preds)

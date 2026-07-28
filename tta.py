@@ -6,6 +6,7 @@ import matplotlib
 matplotlib.use('Agg')  # Backend sem display (compatível com Docker)
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import torch
 import torchvision.transforms.functional as TF
 
@@ -145,12 +146,27 @@ def main():
     # Avalia com e sem TTA
     results = evaluate_with_tta(model, test_loader, device)
 
+    caminho_outputs = Path(Config.IMG_OUTPUTS_PATH)
+    caminho_outputs.mkdir(parents=True, exist_ok=True)
+
     # Relatório de classificação — Sem TTA
     logger.info("=== Resultados SEM TTA ===")
     print(classification_report(
         results["labels"], results["normal_preds"],
         target_names=class_names, digits=4, zero_division=0.0,
     ))
+    
+    report_dict_normal = classification_report(
+        results["labels"], results["normal_preds"],
+        target_names=class_names, output_dict=True, zero_division=0.0,
+    )
+    df_report_normal = pd.DataFrame(report_dict_normal).transpose()
+    plt.figure(figsize=(10, 6))
+    sns.heatmap(df_report_normal.iloc[:-1, :].astype(float), annot=True, cmap="Blues", fmt=".4f")
+    plt.title("Relatório de Classificação - Sem TTA")
+    plt.tight_layout()
+    plt.savefig(caminho_outputs / "classification_report_base.png", dpi=300)
+    plt.close()
 
     # Relatório de classificação — Com TTA
     logger.info("=== Resultados COM TTA ===")
@@ -158,10 +174,20 @@ def main():
         results["labels"], results["tta_preds"],
         target_names=class_names, digits=4, zero_division=0.0,
     ))
+    
+    report_dict_tta = classification_report(
+        results["labels"], results["tta_preds"],
+        target_names=class_names, output_dict=True, zero_division=0.0,
+    )
+    df_report_tta = pd.DataFrame(report_dict_tta).transpose()
+    plt.figure(figsize=(10, 6))
+    sns.heatmap(df_report_tta.iloc[:-1, :].astype(float), annot=True, cmap="Blues", fmt=".4f")
+    plt.title("Relatório de Classificação - Com TTA")
+    plt.tight_layout()
+    plt.savefig(caminho_outputs / "classification_report_tta.png", dpi=300)
+    plt.close()
 
     # Matrizes de confusão lado a lado
-    caminho_outputs = Path(Config.IMG_OUTPUTS_PATH)
-    caminho_outputs.mkdir(parents=True, exist_ok=True)
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
 
