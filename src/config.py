@@ -1,4 +1,4 @@
-from dataset import ctxcovid
+from dataset.dataset import get_dataset_path
 import os
 
 
@@ -30,7 +30,7 @@ class Config:
     MAX_UNFREEZE_STAGE = 4          # Número máximo de fases de descongelamento
 
     # ── Caminhos do dataset (via variável de ambiente DATASET_PATH) ──
-    BASE_PATH = ctxcovid
+    BASE_PATH = get_dataset_path()
 
     # ── Diretórios de imagens (dinâmicos baseado na flag) ──
     IMAGES_DIR_TRAIN = os.path.join(BASE_PATH, '3A_images_segmented' if USE_SEGMENTED_DATA else '3A_images')
