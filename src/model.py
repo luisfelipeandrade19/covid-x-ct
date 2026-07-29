@@ -281,7 +281,7 @@ class EfficientNetClassifier(BaseClassifier):
 class InceptionClassifier(BaseClassifier):
     def __init__(self, num_classes=2, learning_rate=5e-4, **kwargs):
         super().__init__(num_classes, learning_rate, **kwargs)
-        self.model = inception_v3(weights=Inception_V3_Weights.DEFAULT, aux_logits=False, transform_input=False)
+        self.model = inception_v3(weights=Inception_V3_Weights.DEFAULT, transform_input=False)
         in_features = 2048
         
         for param in self.model.parameters():
