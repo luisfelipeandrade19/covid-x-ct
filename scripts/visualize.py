@@ -108,3 +108,59 @@ def generate_cams(model, dataloader, device, num_images=4):
             
         except Exception as e:
             print(f"Falha ao gerar {cam_name}: {e}")
+
+def run_statistical_tests(results, experiment_name):
+    """Executa o Bootstrapping para CIs e salva predições para McNemar, exportando para PNG."""
+    from sklearn.utils import resample
+    from sklearn.metrics import accuracy_score, recall_score, roc_curve, auc, confusion_matrix
+    import pandas as pd
+    
+    all_labels = results["labels"]
+    all_preds = results["normal_preds"]
+    all_probs = results["normal_probs"][:, 1]
+    
+    n_bootstraps = 1000
+    rng_seed = 42
+    bootstrapped_auc = []
+    bootstrapped_sens = []
+    bootstrapped_spec = []
+    
+    print(f"Rodando {n_bootstraps} amostras de Bootstrapping...")
+    for i in range(n_bootstraps):
+        indices = resample(np.arange(len(all_labels)), replace=True, random_state=rng_seed + i)
+        if len(np.unique(all_labels[indices])) < 2:
+            continue
+        
+        fpr, tpr, _ = roc_curve(all_labels[indices], all_probs[indices])
+        bootstrapped_auc.append(auc(fpr, tpr))
+        
+        bootstrapped_sens.append(recall_score(all_labels[indices], all_preds[indices]))
+        
+        tn, fp, fn, tp = confusion_matrix(all_labels[indices], all_preds[indices]).ravel()
+        bootstrapped_spec.append(tn / (tn + fp))
+
+    def get_ci_str(name, scores):
+        scores = np.array(scores)
+        return f"{name:<15}: {scores.mean():.4f} (95% CI: {np.percentile(scores, 2.5):.4f} - {np.percentile(scores, 97.5):.4f})"
+
+    # Monta o texto de saída
+    text_lines = [
+        "Resultados do Bootstrapping (1000 amostras)",
+        "-" * 55,
+        get_ci_str("AUC", bootstrapped_auc),
+        get_ci_str("Sensibilidade", bootstrapped_sens),
+        get_ci_str("Especificidade", bootstrapped_spec),
+        "-" * 55
+    ]
+    
+    final_text = "\n".join(text_lines)
+    print(final_text)
+    
+    # Salva o texto como PNG para o WandB
+    save_text_as_png(final_text, "bootstrapping_metrics.png", title=f"Estatística - {experiment_name}")
+    
+    # Salva as predições em CSV para McNemar cruzado no futuro
+    df_preds = pd.DataFrame({'real': all_labels, 'pred_atual': all_preds})
+    csv_path = os.path.join(Config.IMG_OUTPUTS_PATH, f"preds_{experiment_name}.csv")
+    df_preds.to_csv(csv_path, index=False)
+    print(f"Predições salvas em {csv_path} para futuros testes de McNemar.")

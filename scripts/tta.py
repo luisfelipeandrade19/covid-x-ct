@@ -215,6 +215,46 @@ def main():
     plt.savefig(caminho_outputs / "tta_comparison.png", dpi=300)
     plt.close()
 
+    # Curva ROC (Normal vs TTA)
+    from sklearn.metrics import precision_recall_curve, average_precision_score
+    fpr_norm, tpr_norm, _ = roc_curve(results["labels"], results["normal_probs"][:, 1])
+    roc_auc_norm = auc(fpr_norm, tpr_norm)
+    
+    fpr_tta, tpr_tta, _ = roc_curve(results["labels"], results["tta_probs"][:, 1])
+    roc_auc_tta = auc(fpr_tta, tpr_tta)
+
+    plt.figure(figsize=(8, 6))
+    plt.plot(fpr_norm, tpr_norm, color='darkorange', lw=2, label=f'Sem TTA (AUC = {roc_auc_norm:.4f})')
+    plt.plot(fpr_tta, tpr_tta, color='green', lw=2, label=f'Com TTA (AUC = {roc_auc_tta:.4f})')
+    plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel('Taxa de Falso Positivo')
+    plt.ylabel('Taxa de Verdadeiro Positivo')
+    plt.title('Curva ROC - COVID-19 (Normal vs TTA)')
+    plt.legend(loc="lower right")
+    plt.tight_layout()
+    plt.savefig(caminho_outputs / "roc_curve_comparison.png", dpi=300)
+    plt.close()
+
+    # Curva Precision-Recall (Normal vs TTA)
+    precision_norm, recall_norm, _ = precision_recall_curve(results["labels"], results["normal_probs"][:, 1])
+    ap_norm = average_precision_score(results["labels"], results["normal_probs"][:, 1])
+    
+    precision_tta, recall_tta, _ = precision_recall_curve(results["labels"], results["tta_probs"][:, 1])
+    ap_tta = average_precision_score(results["labels"], results["tta_probs"][:, 1])
+
+    plt.figure(figsize=(8, 6))
+    plt.plot(recall_norm, precision_norm, color='darkorange', lw=2, label=f'Sem TTA (AP = {ap_norm:.4f})')
+    plt.plot(recall_tta, precision_tta, color='green', lw=2, label=f'Com TTA (AP = {ap_tta:.4f})')
+    plt.xlabel('Recall (Sensibilidade)')
+    plt.ylabel('Precision (Valor Preditivo Positivo)')
+    plt.title('Curva Precision-Recall - COVID-19')
+    plt.legend(loc="lower left")
+    plt.tight_layout()
+    plt.savefig(caminho_outputs / "pr_curve_comparison.png", dpi=300)
+    plt.close()
+
     logger.info("TTA concluído.")
 
 

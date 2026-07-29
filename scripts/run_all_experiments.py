@@ -10,7 +10,7 @@ from src.config import Config
 from src.model import SimpleClassifier
 from dataset.loaders import get_dataloaders
 from scripts.tta import evaluate_with_tta
-from scripts.visualize import generate_cams, save_text_as_png
+from scripts.visualize import generate_cams, save_text_as_png, run_statistical_tests
 import wandb
 
 def main():
@@ -98,7 +98,11 @@ def main():
         # OBS: evaluate_with_tta do script tta.py deverá retornar o classification report como string,
         # ou você pode acionar save_text_as_png passando as saídas.
         print("Executando TTA e plotando Curvas...")
-        evaluate_with_tta(best_model, test_loader, device)
+        results = evaluate_with_tta(best_model, test_loader, device)
+        
+        # Testes Estatísticos (Bootstrapping, CIs, McNemar preds)
+        print("Executando Testes Estatísticos...")
+        run_statistical_tests(results, Config.EXPERIMENT_NAME)
         
         # Gera e salva os Grad-CAMs
         print("Gerando Explicabilidade (Grad-CAM, ++, HiResCAM)...")
