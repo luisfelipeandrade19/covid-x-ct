@@ -46,10 +46,13 @@ def generate_cams(model, dataloader, device, num_images=4):
     
     model.eval()
     
+    # O Grad-CAM PRECISA de gradientes para funcionar. Como carregamos o checkpoint,
+    # as camadas podem ter vindo congeladas do __init__. Vamos destravá-las:
+    model.requires_grad_(True)
+    
     # Seleciona a última camada convolucional como alvo para o CAM
-    # Na DenseNet161, a última camada de features antes do Pooling/CBAM é:
-    # model.model.features.norm5 ou model.model.features.denseblock4.denselayer24.conv2
-    target_layers = [model.model.features.norm5]
+    # Na DenseNet161, a última Conv2d real é:
+    target_layers = [model.model.features.denseblock4.denselayer24.conv2]
     
     cam_methods = {
         "Grad-CAM": GradCAM,
