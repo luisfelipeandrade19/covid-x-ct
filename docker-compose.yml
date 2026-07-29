@@ -12,6 +12,8 @@ services:
       - PYTHONUNBUFFERED=1           # Força saída em tempo real (sem buffer)
       - WANDB_API_KEY=${WANDB_API_KEY} # Chave da API do Wandb (passar via export ou .env)
 
+    command: jupyter notebook --ip 0.0.0.0 --port 8888 --no-browser --allow-root
+
     ports:
       - "8888:8888"                  # Porta para o Jupyter Notebook
 
