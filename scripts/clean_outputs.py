@@ -1,6 +1,6 @@
 import os
 import shutil
-from config import Config
+from src.config import Config
 
 def remove_dir(dir_path):
     if os.path.exists(dir_path):
