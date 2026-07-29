@@ -8,6 +8,7 @@ em um novo diretório para que o treinamento via Jupyter seja muito mais rápido
 import os
 import cv2
 import logging
+import numpy as np
 from pathlib import Path
 from tqdm import tqdm
 from src.config import Config
@@ -27,6 +28,20 @@ def process_image(img_path, is_segmented):
             x, y, w, h = cv2.boundingRect(coords)
             image = image[y:y+h, x:x+w]
 
+    # 1. Pseudo-Windowing (Recorte de Percentis / Normalização de Intensidade)
+    # Como as imagens do COVIDx CT estão em PNG (0-255) e não em DICOM,
+    # os valores HU já foram perdidos. Fazemos um pseudo-windowing cortando 
+    # as intensidades muito baixas e muito altas (ruído de fundo/ossos)
+    p2, p98 = np.percentile(image, (2, 98))
+    image = np.clip(image, p2, p98)
+    image = cv2.normalize(image, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+
+    # 2. Filtragem de Ruídos (Filtro Bilateral)
+    # O filtro bilateral reduz o ruído da TC enquanto mantém as bordas nítidas,
+    # diferentemente do blur gaussiano que embaçaria as lesões.
+    image = cv2.bilateralFilter(image, d=5, sigmaColor=75, sigmaSpace=75)
+
+    # 3. Realce Adaptativo de Contraste (CLAHE)
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     try:
         image = clahe.apply(image)

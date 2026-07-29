@@ -79,7 +79,7 @@ class SimpleClassifier(pl.LightningModule):
         """Inicializa o classificador.
 
         Args:
-            num_classes: número de classes de saída (3: Normal, Pneumonia, COVID-19).
+            num_classes: número de classes de saída (2: Pneumonia, COVID-19).
             learning_rate: taxa de aprendizado base.
             lr_decay_factor: fator de decaimento do LR para camadas mais profundas.
         """
