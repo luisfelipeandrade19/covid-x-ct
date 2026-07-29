@@ -97,7 +97,7 @@ def evaluate_with_tta(model, dataloader, device):
         Dicionário com predições e rótulos para ambos os modos.
     """
     tta_transforms = get_tta_transforms()
-    class_names = ["Normal", "Pneumonia", "COVID-19"]
+    class_names = ["Pneumonia", "COVID-19"]
 
     # Listas para acumular resultados
     normal_preds, normal_probs = [], []
@@ -144,7 +144,7 @@ def main():
     model.to(device)
     model.eval()
 
-    class_names = ["Normal", "Pneumonia", "COVID-19"]
+    class_names = ["Pneumonia", "COVID-19"]
 
     # Avalia com e sem TTA
     results = evaluate_with_tta(model, test_loader, device)

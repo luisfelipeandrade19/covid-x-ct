@@ -8,58 +8,62 @@ cv2.setNumThreads(0)
 
 # Datasets — instâncias do CovidCTDataset para cada split
 
-# Dataset de treino com augmentation (flip, rotação, jitter)
-train_dataset = CovidCTDataset(
-    Config.TRAIN_TXT,
-    Config.IMAGES_DIR_TRAIN,
-    transform=train_transforms,
-    is_segmented=Config.USE_SEGMENTED_DATA
-)
+def get_dataloaders():
+    """Retorna (train_loader, val_loader, test_loader) instanciados de acordo com o Config atual."""
+    # Recalcula caminhos baseados na flag atual
+    images_dir_train = Config.BASE_PATH + ('/3A_images_segmented' if Config.USE_SEGMENTED_DATA else '/3A_images')
+    images_dir_test = Config.BASE_PATH + ('/3A_test_images_segmented' if Config.USE_SEGMENTED_DATA else '/3A_images')
 
-# Dataset de validação sem augmentation
-val_dataset = CovidCTDataset(
-    Config.VAL_TXT,
-    Config.IMAGES_DIR_TRAIN,       # Val usa o mesmo diretório de imagens que treino
-    transform=val_transforms,
-    is_segmented=Config.USE_SEGMENTED_DATA
-)
+    train_dataset = CovidCTDataset(
+        Config.TRAIN_TXT,
+        images_dir_train,
+        transform=train_transforms,
+        is_segmented=Config.USE_SEGMENTED_DATA
+    )
 
-# Dataset de teste sem augmentation
-test_dataset = CovidCTDataset(
-    Config.TEST_TXT,
-    Config.IMAGES_DIR_TEST,        # Teste pode usar diretório diferente (segmentação)
-    transform=val_transforms,
-    is_segmented=Config.USE_SEGMENTED_DATA
-)
+    val_dataset = CovidCTDataset(
+        Config.VAL_TXT,
+        images_dir_train,
+        transform=val_transforms,
+        is_segmented=Config.USE_SEGMENTED_DATA
+    )
 
-# DataLoaders — iteradores de lote para o treinamento
+    test_dataset = CovidCTDataset(
+        Config.TEST_TXT,
+        images_dir_test,
+        transform=val_transforms,
+        is_segmented=Config.USE_SEGMENTED_DATA
+    )
 
-# Loader de treino com shuffle (embaralhamento a cada época)
-train_loader = DataLoader(
-    train_dataset,
-    batch_size=Config.BATCH_SIZE,
-    shuffle=True,
-    num_workers=2,
-    persistent_workers=True,
-    pin_memory=True,          # Acelera transferência CPU → GPU
-)
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=Config.BATCH_SIZE,
+        shuffle=True,
+        num_workers=2,
+        persistent_workers=True,
+        pin_memory=True,
+    )
 
-# Loader de validação sem shuffle (ordem fixa para reprodutibilidade)
-val_loader = DataLoader(
-    val_dataset,
-    batch_size=Config.BATCH_SIZE,
-    shuffle=False,
-    num_workers=2,
-    persistent_workers=True,
-    pin_memory=True,
-)
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=Config.BATCH_SIZE,
+        shuffle=False,
+        num_workers=2,
+        persistent_workers=True,
+        pin_memory=True,
+    )
 
-# Loader de teste sem shuffle
-test_loader = DataLoader(
-    test_dataset,
-    batch_size=Config.BATCH_SIZE,
-    shuffle=False,
-    num_workers=2,
-    persistent_workers=True,
-    pin_memory=True,
-)
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=Config.BATCH_SIZE,
+        shuffle=False,
+        num_workers=2,
+        persistent_workers=True,
+        pin_memory=True,
+    )
+
+    return train_loader, val_loader, test_loader
+
+# Mantém instâncias globais para compatibilidade com notebooks isolados,
+# inicializando-as com a configuração padrão do config.py
+train_loader, val_loader, test_loader = get_dataloaders()
