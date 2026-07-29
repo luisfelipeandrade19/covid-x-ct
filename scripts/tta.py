@@ -144,11 +144,13 @@ def main():
     model.to(device)
     model.eval()
 
-    class_names = ["Pneumonia", "COVID-19"]
-
     # Avalia com e sem TTA
     results = evaluate_with_tta(model, test_loader, device)
-
+    plot_tta_metrics(results)
+    
+def plot_tta_metrics(results):
+    """Gera gráficos de métricas a partir dos resultados de avaliação (Confusion Matrix, ROC, PR)."""
+    class_names = ["Pneumonia", "COVID-19"]
     caminho_outputs = Path(Config.IMG_OUTPUTS_PATH)
     caminho_outputs.mkdir(parents=True, exist_ok=True)
 
@@ -250,13 +252,11 @@ def main():
     plt.xlabel('Recall (Sensibilidade)')
     plt.ylabel('Precision (Valor Preditivo Positivo)')
     plt.title('Curva Precision-Recall - COVID-19')
-    plt.legend(loc="lower left")
     plt.tight_layout()
     plt.savefig(caminho_outputs / "pr_curve_comparison.png", dpi=300)
     plt.close()
-
-    logger.info("TTA concluído.")
-
-
+    
+    logger.info("TTA plots gerados.")
+    
 if __name__ == "__main__":
     main()

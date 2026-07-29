@@ -215,17 +215,8 @@ def plot_reliability_diagram(logits, labels, title, filename, n_bins=10):
     plt.close()
 
 
-def main():
-    """Executa a análise de calibração completa.
-
-    Gera: reliability_diagram_before.png, reliability_diagram_after.png.
-    """
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    # Carrega o melhor checkpoint salvo durante o treino
-    checkpoint_path = Config.get_latest_checkpoint()
-    model = SimpleClassifier.load_from_checkpoint(checkpoint_path)
-    model.to(device)
+def run_calibration(model, val_loader, test_loader, device):
+    """Executa a análise de calibração completa e salva gráficos ECE."""
     model.eval()
 
     # Coleta logits puros do conjunto de TESTE para avaliar o "Antes"
@@ -270,7 +261,3 @@ def main():
     )
 
     logger.info("Calibração concluída.")
-
-
-if __name__ == "__main__":
-    main()

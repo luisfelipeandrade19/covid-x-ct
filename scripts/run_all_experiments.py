@@ -9,19 +9,18 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from src.config import Config
 from src.model import SimpleClassifier
 from dataset.loaders import get_dataloaders
-from scripts.tta import evaluate_with_tta
+from scripts.tta import evaluate_with_tta, plot_tta_metrics
 from scripts.visualize import generate_cams, save_text_as_png, run_statistical_tests
+from scripts.calibration import run_calibration
 import wandb
 
 def main():
     print("Iniciando bateria de experimentos automatizados...")
     
-    # Grid Search sobre as duas variáveis-chave do experimento
+    # Apenas SEG vs FULL (Mantendo GU sempre True conforme planejamento estratégico)
     experimentos = [
         {"is_seg": True, "use_gu": True},
-        {"is_seg": True, "use_gu": False},
         {"is_seg": False, "use_gu": True},
-        {"is_seg": False, "use_gu": False},
     ]
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -99,6 +98,7 @@ def main():
         # ou você pode acionar save_text_as_png passando as saídas.
         print("Executando TTA e plotando Curvas...")
         results = evaluate_with_tta(best_model, test_loader, device)
+        plot_tta_metrics(results)
         
         # Testes Estatísticos (Bootstrapping, CIs, McNemar preds)
         print("Executando Testes Estatísticos...")
@@ -107,6 +107,10 @@ def main():
         # Gera e salva os Grad-CAMs
         print("Gerando Explicabilidade (Grad-CAM, ++, HiResCAM)...")
         generate_cams(best_model, test_loader, device, num_images=4)
+        
+        # Testes de Calibração (ECE e Temperature Scaling)
+        print("Executando Análise de Calibração (ECE)...")
+        run_calibration(best_model, val_loader, test_loader, device)
         
         # Envia TODAS as imagens geradas nesta rodada para o painel do WandB!
         import glob
