@@ -1,6 +1,10 @@
 from src.config import Config
 from dataset.dataset import CovidCTDataset, train_transforms, val_transforms
 from torch.utils.data import DataLoader
+import cv2
+
+# Evita conflitos de threading entre o OpenCV e os workers do DataLoader do PyTorch
+cv2.setNumThreads(0)
 
 # Datasets — instâncias do CovidCTDataset para cada split
 
@@ -35,7 +39,7 @@ train_loader = DataLoader(
     train_dataset,
     batch_size=Config.BATCH_SIZE,
     shuffle=True,
-    num_workers=4,
+    num_workers=2,
     persistent_workers=True,
     pin_memory=True,          # Acelera transferência CPU → GPU
 )
@@ -45,7 +49,7 @@ val_loader = DataLoader(
     val_dataset,
     batch_size=Config.BATCH_SIZE,
     shuffle=False,
-    num_workers=4,
+    num_workers=2,
     persistent_workers=True,
     pin_memory=True,
 )
@@ -55,7 +59,7 @@ test_loader = DataLoader(
     test_dataset,
     batch_size=Config.BATCH_SIZE,
     shuffle=False,
-    num_workers=4,
+    num_workers=2,
     persistent_workers=True,
     pin_memory=True,
 )
