@@ -11,6 +11,9 @@ import logging
 import numpy as np
 from pathlib import Path
 from tqdm import tqdm
+
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from src.config import Config
 
 logging.basicConfig(level=logging.INFO)

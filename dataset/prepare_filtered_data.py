@@ -103,6 +103,9 @@ def print_distribution(name, entries):
 
 
 if __name__ == "__main__":
+    import sys
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    
     from src.config import Config
 
     base = Path(Config.BASE_PATH)
