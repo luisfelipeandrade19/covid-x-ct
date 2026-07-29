@@ -16,6 +16,9 @@ from sklearn.metrics import roc_curve, auc
 
 import seaborn as sns
 
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from src.config import Config
 from dataset.loaders import test_loader
 from src.model import SimpleClassifier

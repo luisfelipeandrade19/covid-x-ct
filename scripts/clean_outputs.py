@@ -1,5 +1,7 @@
 import os
 import shutil
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from src.config import Config
 
 def remove_dir(dir_path):

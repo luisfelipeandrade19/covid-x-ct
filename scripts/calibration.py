@@ -10,6 +10,9 @@ import torch
 import torch.nn as nn
 from torch import optim
 
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from src.config import Config
 from dataset.loaders import test_loader, val_loader
 from src.model import SimpleClassifier
