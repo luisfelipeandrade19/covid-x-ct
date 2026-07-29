@@ -1,13 +1,16 @@
-from src.config import Config
-from torchvision.models import densenet161, DenseNet161_Weights
+import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import pytorch_lightning as pl
 import torchmetrics
-import torch
-from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-import torch.nn.functional as F
-
+from torchvision.models import (
+    densenet121, DenseNet121_Weights,
+    resnet50, ResNet50_Weights,
+    efficientnet_b2, EfficientNet_B2_Weights,
+    inception_v3, Inception_V3_Weights,
+    convnext_tiny, ConvNeXt_Tiny_Weights
+)
 
 class ChannelAttention(nn.Module):
     def __init__(self, in_planes, ratio=16):
@@ -53,69 +56,17 @@ class CBAM(nn.Module):
         return result
 
 
-class SimpleClassifier(pl.LightningModule):
-    """Classificador de CT pulmonar baseado em DenseNet161 com descongelamento gradual.
-
-    Utiliza transfer learning: a backbone da DenseNet161 é carregada com pesos
-    pré-treinados do ImageNet e progressivamente descongelada durante o treino.
-    O classificador final é substituído por uma cabeça personalizada com Dropout.
-
-    Atributos:
-        UNFREEZE_STAGES: lista de blocos a descongelar em cada fase.
-        model: a DenseNet161 com o classificador substituído.
-        criterion: função de perda (CrossEntropy com label smoothing).
-    """
-
-    # Blocos a descongelar em cada fase (ordem: mais profundo → mais raso)
-    UNFREEZE_STAGES = [
-        [],                                                  # Fase 0: tudo congelado
-        ['denseblock4', 'norm5'],                            # Fase 1: último bloco
-        ['denseblock3', 'transition3'],                      # Fase 2: penúltimo bloco
-        ['denseblock2', 'transition2'],                      # Fase 3: bloco intermediário
-        ['denseblock1', 'transition1', 'conv0', 'norm0']     # Fase 4: tudo descongelado
-    ]
-
+class BaseClassifier(pl.LightningModule):
+    """Classe Base com o ciclo de treinamento e métricas."""
     def __init__(self, num_classes, learning_rate, lr_decay_factor=0.1, weight_decay=1e-4):
-        """Inicializa o classificador.
-
-        Args:
-            num_classes: número de classes de saída (2: Pneumonia, COVID-19).
-            learning_rate: taxa de aprendizado base.
-            lr_decay_factor: fator de decaimento do LR para camadas mais profundas.
-        """
         super().__init__()
         self.save_hyperparameters()
         self.learning_rate = learning_rate
         self.lr_decay_factor = lr_decay_factor
         self.weight_decay = weight_decay
-
-        # Função de perda com label smoothing para regularização
         self.criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
-
-        # Carrega a DenseNet161 com pesos pré-treinados do ImageNet
-        self.model = densenet161(weights=DenseNet161_Weights.DEFAULT)
-
-        # Congela toda a backbone (será descongelada gradualmente)
-        for param in self.model.parameters():
-            param.requires_grad = False
-
-        # Substitui o classificador original por uma cabeça personalizada
-        in_features = 2208
-        self.model.classifier = nn.Sequential(
-            nn.Dropout(0.5),                                          # Dropout para regularização
-            nn.Linear(in_features, 256),                              # Camada intermediária
-            nn.ReLU(),                                                # Ativação
-            nn.Dropout(0.3),                                          # Segundo dropout
-            nn.Linear(256, num_classes),                              # Camada de saída
-        )
-
-        # Módulo de Atenção (CBAM) inserido após as features da DenseNet161
-        self.cbam = CBAM(in_planes=in_features, ratio=8)
-
-        # Controle da fase atual de descongelamento
         self._current_stage = 0
 
-        # Coleção de métricas clínicas binárias
         metrics = torchmetrics.MetricCollection([
             torchmetrics.Accuracy(task="binary"),
             torchmetrics.Precision(task="binary"),
@@ -128,19 +79,9 @@ class SimpleClassifier(pl.LightningModule):
         self.val_metrics = metrics.clone(prefix='val_')
 
     def unfreeze_stage(self, stage: int):
-        """Descongela todos os blocos até a fase indicada (inclusive).
-
-        Percorre as fases desde a atual até a desejada, habilitando
-        requires_grad para os parâmetros de cada bloco.
-
-        Args:
-            stage: fase alvo de descongelamento (0 a 4).
-        """
-        # Evita recongelar fases já descongeladas
         if stage <= self._current_stage and self._current_stage > 0:
             return
 
-        # Descongela cada fase entre a atual e a alvo
         for s in range(self._current_stage + 1, stage + 1):
             if s >= len(self.UNFREEZE_STAGES):
                 break
@@ -148,132 +89,284 @@ class SimpleClassifier(pl.LightningModule):
                 if any(block in name for block in self.UNFREEZE_STAGES[s]):
                     param.requires_grad = True
 
-        # Atualiza a fase atual
         self._current_stage = min(stage, len(self.UNFREEZE_STAGES) - 1)
 
+    def extract_features(self, x):
+        raise NotImplementedError
+
+    def get_cam_target_layer(self):
+        raise NotImplementedError
+
     def forward(self, x):
-        """Passa os dados pela DenseNet161 com módulo CBAM embutido."""
-        # Extrai features convolucionais da DenseNet
-        features = self.model.features(x)
-        out = F.relu(features, inplace=True)
+        features = self.extract_features(x)
+        out = self.cbam(features)
         
-        # Aplica o Módulo de Atenção (ensina o modelo a focar nas patologias e ignorar ossos)
-        out = self.cbam(out)
-        
-        # Faz o pooling global e classificação final
+        # Adaptive pooling para forçar o tamanho correto não importa o tamanho da imagem de entrada
         out = F.adaptive_avg_pool2d(out, (1, 1))
         out = torch.flatten(out, 1)
-        out = self.model.classifier(out)
-        
+        out = self.classifier(out)
         return out
 
     def training_step(self, batch, batch_idx):
-        """Executa um passo de treino: forward, cálculo de loss e métricas.
-
-        Args:
-            batch: tupla (imagens, rótulos).
-            batch_idx: índice do lote atual.
-
-        Returns:
-            Valor da loss para o otimizador.
-        """
         x, y = batch
         logits = self(x)
         loss = self.criterion(logits, y)
-
-        # Extrai a probabilidade da classe positiva (COVID-19 = índice 1)
+        self.log('train_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
         probs = torch.softmax(logits, dim=1)[:, 1]
-
-        # Atualiza as métricas de treino
         self.train_metrics(probs, y)
-
-        # Registra loss e dicionário de métricas no logger
-        self.log('train_loss', loss, on_epoch=True, prog_bar=True)
-        self.log_dict(self.train_metrics, on_epoch=True, prog_bar=False)
+        self.log_dict(self.train_metrics, on_step=False, on_epoch=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
-        """Executa um passo de validação: forward, cálculo de loss e métricas.
-
-        Args:
-            batch: tupla (imagens, rótulos).
-            batch_idx: índice do lote atual.
-
-        Returns:
-            Valor da loss de validação.
-        """
         x, y = batch
         logits = self(x)
         loss = self.criterion(logits, y)
-
-        # Extrai a probabilidade da classe positiva (COVID-19 = índice 1)
+        self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
         probs = torch.softmax(logits, dim=1)[:, 1]
-
-        # Atualiza as métricas de validação
         self.val_metrics(probs, y)
-
-        # Registra loss e dicionário de métricas no logger
-        self.log('val_loss', loss, on_epoch=True, prog_bar=True)
-        self.log_dict(self.val_metrics, on_epoch=True, prog_bar=False)
+        self.log_dict(self.val_metrics, on_step=False, on_epoch=True)
         return loss
 
+    def test_step(self, batch, batch_idx):
+        x, y = batch
+        logits = self(x)
+        loss = self.criterion(logits, y)
+        self.log('test_loss', loss)
+
     def configure_optimizers(self):
-        """Configura o otimizador AdamW e o scheduler ReduceLROnPlateau.
+        optimizer = torch.optim.AdamW(
+            filter(lambda p: p.requires_grad, self.parameters()),
+            lr=self.learning_rate,
+            weight_decay=self.weight_decay
+        )
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode='min', factor=0.5, patience=3, min_lr=1e-6
+        )
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "monitor": "val_loss",
+                "interval": "epoch",
+                "frequency": 1,
+            }
+        }
 
-        Returns:
-            Dicionário com otimizador e scheduler monitorando val_loss.
-        """
-        param_groups = self._build_param_groups()
-        optimizer = torch.optim.AdamW(param_groups, lr=self.learning_rate, weight_decay=self.weight_decay)
-        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=3)
-        return {"optimizer": optimizer, "lr_scheduler": {"scheduler": scheduler, "monitor": "val_loss"}}
 
-    def _build_param_groups(self):
-        """Monta param groups com LR decrescente para camadas mais profundas.
+# =========================================================================
+# CLASSES FILHAS (FABRICA DE MODELOS)
+# =========================================================================
 
-        Camadas descongeladas mais recentemente recebem o LR base;
-        camadas descongeladas em fases anteriores recebem LRs
-        progressivamente menores (multiplicadas por lr_decay_factor).
-
-        Returns:
-            Lista de dicionários com 'params' e 'lr' para o otimizador.
-        """
+class DenseNetClassifier(BaseClassifier):
+    def __init__(self, model_name="densenet161", num_classes=2, learning_rate=5e-4, **kwargs):
+        super().__init__(num_classes, learning_rate, **kwargs)
+        self.model_name = model_name
         
-        # Agrupa parâmetros por fase de descongelamento
-        stage_params = {s: [] for s in range(len(self.UNFREEZE_STAGES))}
-        classifier_params = []
+        if model_name == "densenet121":
+            self.model = densenet121(weights=DenseNet121_Weights.DEFAULT)
+            in_features = 1024
+        else:
+            self.model = densenet161(weights=DenseNet161_Weights.DEFAULT)
+            in_features = 2208
+            
+        for param in self.model.parameters():
+            param.requires_grad = False
 
-        for name, param in self.model.named_parameters():
-            if not param.requires_grad:
-                continue
+        self.classifier = nn.Sequential(
+            nn.Dropout(0.5),
+            nn.Linear(in_features, 256),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(256, num_classes)
+        )
+        self.cbam = CBAM(in_planes=in_features, ratio=8)
+        self.UNFREEZE_STAGES = [
+            [],
+            ['denseblock4', 'norm5'],
+            ['denseblock3', 'transition3'],
+            ['denseblock2', 'transition2'],
+            ['denseblock1', 'transition1', 'conv0', 'norm0']
+        ]
 
-            # Parâmetros do classificador e CBAM vão em grupo separado
-            if 'classifier' in name or 'cbam' in name:
-                classifier_params.append(param)
-                continue
+    def extract_features(self, x):
+        features = self.model.features(x)
+        return F.relu(features, inplace=True)
 
-            # Identifica a qual fase o parâmetro pertence
-            assigned = False
-            for s, blocks in enumerate(self.UNFREEZE_STAGES):
-                if any(block in name for block in blocks):
-                    stage_params[s].append(param)
-                    assigned = True
-                    break
-            if not assigned:
-                classifier_params.append(param)
+    def get_cam_target_layer(self):
+        if self.model_name == "densenet121":
+            return [self.model.features.denseblock4.denselayer16.conv2]
+        return [self.model.features.denseblock4.denselayer24.conv2]
 
-        groups = []
 
-        # Classificador sempre recebe o LR completo
-        if classifier_params:
-            groups.append({'params': classifier_params, 'lr': self.learning_rate})
+class ResNetClassifier(BaseClassifier):
+    def __init__(self, num_classes=2, learning_rate=5e-4, **kwargs):
+        super().__init__(num_classes, learning_rate, **kwargs)
+        self.model = resnet50(weights=ResNet50_Weights.DEFAULT)
+        in_features = 2048
+        
+        for param in self.model.parameters():
+            param.requires_grad = False
 
-        # Fases mais antigas recebem LR progressivamente menor
-        for s in range(self._current_stage, 0, -1):
-            if stage_params[s]:
-                distance = self._current_stage - s + 1
-                lr = self.learning_rate * (self.lr_decay_factor ** distance)
-                groups.append({'params': stage_params[s], 'lr': lr})
+        self.classifier = nn.Sequential(
+            nn.Dropout(0.5),
+            nn.Linear(in_features, 256),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(256, num_classes)
+        )
+        self.cbam = CBAM(in_planes=in_features, ratio=8)
+        self.UNFREEZE_STAGES = [
+            [],
+            ['layer4'],
+            ['layer3'],
+            ['layer2'],
+            ['layer1', 'conv1', 'bn1']
+        ]
 
-        # Fallback: se nenhum parâmetro treinável, cria um dummy
-        return groups if groups else [{'params': [torch.zeros(1, requires_grad=True)], 'lr': self.learning_rate}]
+    def extract_features(self, x):
+        x = self.model.conv1(x)
+        x = self.model.bn1(x)
+        x = self.model.relu(x)
+        x = self.model.maxpool(x)
+        x = self.model.layer1(x)
+        x = self.model.layer2(x)
+        x = self.model.layer3(x)
+        x = self.model.layer4(x)
+        return x
+
+    def get_cam_target_layer(self):
+        return [self.model.layer4[-1].conv3]
+
+
+class EfficientNetClassifier(BaseClassifier):
+    def __init__(self, num_classes=2, learning_rate=5e-4, **kwargs):
+        super().__init__(num_classes, learning_rate, **kwargs)
+        self.model = efficientnet_b2(weights=EfficientNet_B2_Weights.DEFAULT)
+        in_features = 1408
+        
+        for param in self.model.parameters():
+            param.requires_grad = False
+
+        self.classifier = nn.Sequential(
+            nn.Dropout(0.4),
+            nn.Linear(in_features, 256),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(256, num_classes)
+        )
+        self.cbam = CBAM(in_planes=in_features, ratio=8)
+        self.UNFREEZE_STAGES = [
+            [],
+            ['features.8'],
+            ['features.7', 'features.6'],
+            ['features.5', 'features.4'],
+            ['features.3', 'features.2', 'features.1', 'features.0']
+        ]
+
+    def extract_features(self, x):
+        return self.model.features(x)
+
+    def get_cam_target_layer(self):
+        return [self.model.features[-1]]
+
+
+class InceptionClassifier(BaseClassifier):
+    def __init__(self, num_classes=2, learning_rate=5e-4, **kwargs):
+        super().__init__(num_classes, learning_rate, **kwargs)
+        self.model = inception_v3(weights=Inception_V3_Weights.DEFAULT, aux_logits=False, transform_input=False)
+        in_features = 2048
+        
+        for param in self.model.parameters():
+            param.requires_grad = False
+
+        self.classifier = nn.Sequential(
+            nn.Dropout(0.5),
+            nn.Linear(in_features, 256),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(256, num_classes)
+        )
+        self.cbam = CBAM(in_planes=in_features, ratio=8)
+        self.UNFREEZE_STAGES = [
+            [],
+            ['Mixed_7'],
+            ['Mixed_6'],
+            ['Mixed_5'],
+            ['Conv2d_1', 'Conv2d_2', 'Conv2d_3', 'Conv2d_4', 'Mixed_5']
+        ]
+
+    def extract_features(self, x):
+        # Inception V3 Custom Forward (Bypassing Aux Logits & Flatten)
+        x = self.model.Conv2d_1a_3x3(x)
+        x = self.model.Conv2d_2a_3x3(x)
+        x = self.model.Conv2d_2b_3x3(x)
+        x = self.model.maxpool1(x)
+        x = self.model.Conv2d_3b_1x1(x)
+        x = self.model.Conv2d_4a_3x3(x)
+        x = self.model.maxpool2(x)
+        x = self.model.Mixed_5b(x)
+        x = self.model.Mixed_5c(x)
+        x = self.model.Mixed_5d(x)
+        x = self.model.Mixed_6a(x)
+        x = self.model.Mixed_6b(x)
+        x = self.model.Mixed_6c(x)
+        x = self.model.Mixed_6d(x)
+        x = self.model.Mixed_6e(x)
+        x = self.model.Mixed_7a(x)
+        x = self.model.Mixed_7b(x)
+        x = self.model.Mixed_7c(x)
+        return x
+
+    def get_cam_target_layer(self):
+        return [self.model.Mixed_7c]
+
+
+class ConvNeXtClassifier(BaseClassifier):
+    def __init__(self, num_classes=2, learning_rate=5e-4, **kwargs):
+        super().__init__(num_classes, learning_rate, **kwargs)
+        self.model = convnext_tiny(weights=ConvNeXt_Tiny_Weights.DEFAULT)
+        in_features = 768
+        
+        for param in self.model.parameters():
+            param.requires_grad = False
+
+        self.classifier = nn.Sequential(
+            nn.Dropout(0.4),
+            nn.Linear(in_features, 256),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(256, num_classes)
+        )
+        self.cbam = CBAM(in_planes=in_features, ratio=8)
+        self.UNFREEZE_STAGES = [
+            [],
+            ['features.7'],
+            ['features.5'],
+            ['features.3'],
+            ['features.1', 'features.0']
+        ]
+
+    def extract_features(self, x):
+        return self.model.features(x)
+
+    def get_cam_target_layer(self):
+        return [self.model.features[-1][-1].block[0]]
+
+
+def get_model_factory(model_name: str, num_classes=2, learning_rate=5e-4):
+    """Fábrica de Modelos que retorna a arquitetura correta baseada no nome."""
+    name = model_name.lower()
+    if name == "densenet161":
+        return DenseNetClassifier(model_name="densenet161", num_classes=num_classes, learning_rate=learning_rate)
+    elif name == "densenet121":
+        return DenseNetClassifier(model_name="densenet121", num_classes=num_classes, learning_rate=learning_rate)
+    elif name == "resnet50":
+        return ResNetClassifier(num_classes=num_classes, learning_rate=learning_rate)
+    elif name == "efficientnet_b2":
+        return EfficientNetClassifier(num_classes=num_classes, learning_rate=learning_rate)
+    elif name == "inception_v3":
+        return InceptionClassifier(num_classes=num_classes, learning_rate=learning_rate)
+    elif name == "convnext_tiny":
+        return ConvNeXtClassifier(num_classes=num_classes, learning_rate=learning_rate)
+    else:
+        raise ValueError(f"Modelo não suportado: {model_name}")

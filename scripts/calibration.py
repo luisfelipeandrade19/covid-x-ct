@@ -15,7 +15,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.config import Config
 from dataset.loaders import test_loader, val_loader
-from src.model import SimpleClassifier
+
 
 logger = logging.getLogger(__name__)
 
@@ -241,6 +241,8 @@ def run_calibration(model, val_loader, test_loader, device):
     )
 
     # Aplica o Temperature Scaling (otimiza T no conjunto de validação)
+    print("Erro: calibration.py agora é um módulo. Por favor, execute através do run_all_experiments.py para suportar múltiplas arquiteturas.")
+    sys.exit(1)
     calibrated_model = ModelWithTemperature(model)
     calibrated_model.to(device)
 

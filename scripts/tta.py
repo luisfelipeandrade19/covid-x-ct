@@ -21,7 +21,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.config import Config
 from dataset.loaders import test_loader
-from src.model import SimpleClassifier
+
 
 logger = logging.getLogger(__name__)
 
@@ -140,9 +140,8 @@ def main():
 
     # Carrega o melhor checkpoint salvo durante o treino
     checkpoint_path = Config.get_latest_checkpoint()
-    model = SimpleClassifier.load_from_checkpoint(checkpoint_path)
-    model.to(device)
-    model.eval()
+    print("Erro: tta.py agora é um módulo. Por favor, execute através do run_all_experiments.py para suportar múltiplas arquiteturas.")
+    sys.exit(1)
 
     # Avalia com e sem TTA
     results = evaluate_with_tta(model, test_loader, device)

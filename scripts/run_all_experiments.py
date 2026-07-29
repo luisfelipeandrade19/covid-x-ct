@@ -7,7 +7,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from src.config import Config
-from src.model import SimpleClassifier
+from src.model import get_model_factory
 from dataset.loaders import get_dataloaders
 from scripts.tta import evaluate_with_tta, plot_tta_metrics
 from scripts.visualize import generate_cams, save_text_as_png, run_statistical_tests
@@ -17,19 +17,22 @@ import wandb
 def main():
     print("Iniciando bateria de experimentos automatizados...")
     
-    # Apenas SEG vs FULL (Mantendo GU sempre True conforme planejamento estratégico)
-    experimentos = [
-        {"is_seg": True, "use_gu": True},
-        {"is_seg": False, "use_gu": True},
-    ]
+    model_names = ["densenet121", "resnet50", "efficientnet_b2", "inception_v3", "convnext_tiny"]
+    
+    # Grid de experimentos: Modelos x (SEG vs FULL)
+    experimentos = []
+    for m in model_names:
+        experimentos.append({"model": m, "is_seg": True, "use_gu": True})
+        experimentos.append({"model": m, "is_seg": False, "use_gu": True})
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     for exp in experimentos:
         # 1. Sobrescreve as configurações globalmente
+        Config.MODEL_NAME = exp["model"]
         Config.USE_SEGMENTED_DATA = exp["is_seg"]
         Config.USE_GRADUAL_UNFREEZING = exp["use_gu"]
-        Config.EXPERIMENT_NAME = f"{'SEG' if exp['is_seg'] else 'FULL'}_{'GU' if exp['use_gu'] else 'NOGU'}"
+        Config.EXPERIMENT_NAME = f"{exp['model']}_{'SEG' if exp['is_seg'] else 'FULL'}_{'GU' if exp['use_gu'] else 'NOGU'}"
         
         # Atualiza o caminho de output dinâmico para essa iteração
         Config.IMG_OUTPUTS_PATH = os.path.join(os.getcwd(), 'outputs', Config.EXPERIMENT_NAME)
@@ -43,14 +46,14 @@ def main():
         # 3. Prepara o Logger e o Modelo
         wandb_logger = WandbLogger(
             project="SIATCT_Binary_Experiment",
-            name=f"DenseNet_{Config.EXPERIMENT_NAME}",
+            name=Config.EXPERIMENT_NAME,
             log_model="all"
         )
         
-        model = SimpleClassifier(
+        model = get_model_factory(
+            model_name=exp["model"],
             num_classes=Config.NUM_CLASSES, 
-            learning_rate=Config.LEARNING_RATE,
-            weight_decay=Config.WEIGHT_DECAY
+            learning_rate=Config.LEARNING_RATE
         )
         
         # Callbacks (salva os pesos na pasta com o nome do experimento atual)
@@ -89,7 +92,7 @@ def main():
             best_model_path = checkpoint_callback.last_model_path
             
         print(f"Avaliando pesos: {best_model_path}")
-        best_model = SimpleClassifier.load_from_checkpoint(best_model_path)
+        best_model = model.__class__.load_from_checkpoint(best_model_path)
         best_model.to(device)
         best_model.eval()
         
