@@ -34,8 +34,17 @@ def main():
         Config.USE_GRADUAL_UNFREEZING = exp["use_gu"]
         Config.EXPERIMENT_NAME = f"{exp['model']}_{'SEG' if exp['is_seg'] else 'FULL'}_{'GU' if exp['use_gu'] else 'NOGU'}"
         
-        # Atualiza o caminho de output dinâmico para essa iteração
         Config.IMG_OUTPUTS_PATH = os.path.join(os.getcwd(), 'outputs', Config.EXPERIMENT_NAME)
+        
+        # Super-Skip: Se o checkpoint e o último gráfico já existem, a avaliação inteira já foi concluída.
+        import glob
+        checkpoint_dir = os.path.join(Config.BASE_PATH, 'checkpoints', Config.EXPERIMENT_NAME)
+        already_evaluated = os.path.exists(os.path.join(Config.IMG_OUTPUTS_PATH, "roc_curve_comparison.png"))
+        
+        if already_evaluated and len(glob.glob(os.path.join(checkpoint_dir, "*.ckpt"))) > 0:
+            print(f"\n[Super Skip] Treino e Avaliação já 100% concluídos para {Config.EXPERIMENT_NAME}. Pulando experimento inteiro!")
+            continue
+
         os.makedirs(Config.IMG_OUTPUTS_PATH, exist_ok=True)
         
         print(f"\n{'='*50}\nIniciando Experimento: {Config.EXPERIMENT_NAME}\n{'='*50}")
@@ -61,11 +70,16 @@ def main():
         checkpoint_callback = ModelCheckpoint(
             dirpath=checkpoint_dir,
             filename="{epoch}-{val_loss:.2f}-{val_acc:.2f}",
-            monitor="val_loss",
-            mode="min",
             save_top_k=1,
-            save_last=True,
+            monitor="val_loss",
+            mode="min"
         )
+        
+        # Verifica se já existe um modelo treinado para pular
+        import glob
+        existing_checkpoints = glob.glob(os.path.join(checkpoint_dir, "*.ckpt"))
+        already_trained = len(existing_checkpoints) > 0
+        
         lr_monitor = LearningRateMonitor(logging_interval='epoch')
         
         # 4. Treinamento
@@ -81,15 +95,19 @@ def main():
             # limit_val_batches=0.1,
         )
         
-        trainer.fit(model, train_loader, val_loader)
-        
-        # 5. Avaliação Final (Pós-Treino)
-        print(f"\nTreino concluído para {Config.EXPERIMENT_NAME}. Iniciando análise rigorosa...")
-        
-        # Carrega o melhor peso gerado
-        best_model_path = checkpoint_callback.best_model_path
-        if not best_model_path:
-            best_model_path = checkpoint_callback.last_model_path
+        if already_trained:
+            print(f"\n[Smart Skip] Checkpoint encontrado para {Config.EXPERIMENT_NAME}. Pulando treino!")
+            best_model_path = existing_checkpoints[0]
+        else:
+            trainer.fit(model, train_loader, val_loader)
+            
+            # 5. Avaliação Final (Pós-Treino)
+            print(f"\nTreino concluído para {Config.EXPERIMENT_NAME}. Iniciando análise rigorosa...")
+            
+            # Carrega o melhor peso gerado
+            best_model_path = checkpoint_callback.best_model_path
+            if not best_model_path:
+                best_model_path = checkpoint_callback.last_model_path
             
         print(f"Avaliando pesos: {best_model_path}")
         best_model = model.__class__.load_from_checkpoint(best_model_path)
