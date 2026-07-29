@@ -241,7 +241,15 @@ class ResNetClassifier(BaseClassifier):
 class EfficientNetClassifier(BaseClassifier):
     def __init__(self, num_classes=2, learning_rate=5e-4, **kwargs):
         super().__init__(num_classes, learning_rate, **kwargs)
-        self.model = efficientnet_b2(weights=EfficientNet_B2_Weights.DEFAULT)
+        self.model = efficientnet_b2(weights=None)
+        
+        # Bypass manual do Hash Check para contornar o RuntimeError do PyTorch 2.1
+        url = EfficientNet_B2_Weights.DEFAULT.url
+        try:
+            state_dict = torch.hub.load_state_dict_from_url(url, check_hash=False)
+            self.model.load_state_dict(state_dict)
+        except Exception as e:
+            print(f"Aviso: Não foi possível baixar os pesos da EfficientNet ({e}). O treino continuará do zero.")
         in_features = 1408
         
         for param in self.model.parameters():
