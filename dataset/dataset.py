@@ -2,8 +2,10 @@ import logging
 import os
 import cv2
 import pandas as pd
-import torchvision.transforms as transforms
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
 from PIL import Image
+import numpy as np
 from torch.utils.data import Dataset
 
 logger = logging.getLogger(__name__)
@@ -66,8 +68,21 @@ class CovidCTDataset(Dataset):
         self.transform = transform
         self.is_segmented = is_segmented
 
-        # Inicializa o CLAHE para realce adaptativo de contraste
-        self.clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        self.is_segmented = is_segmented
+        
+        # Ajusta o diretório de imagens para as pastas pré-processadas
+        base_path = os.path.dirname(os.path.dirname(img_dir)) # Volta para a base
+        if is_segmented:
+            self.img_dir = os.path.join(base_path, "processed_segmented")
+        else:
+            self.img_dir = os.path.join(base_path, "processed_full")
+
+        # Verifica se o diretório de pré-processamento existe
+        if not os.path.isdir(self.img_dir):
+            logger.warning(
+                f"Diretório de imagens pré-processadas não encontrado: {self.img_dir}. "
+                "Certifique-se de rodar preprocess.py primeiro!"
+            )
 
         # Log de distribuição de classes para detecção de desbalanceamento
         class_counts = self.data[1].value_counts().sort_index()
@@ -100,60 +115,40 @@ class CovidCTDataset(Dataset):
         img_path = os.path.join(self.img_dir, img_name)
         label = int(self.data.iloc[idx, 1])
 
-        # Lê a imagem em escala de cinza
-        image = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+        # Lê a imagem em RGB (as pré-processadas já estão em RGB)
+        image = cv2.imread(img_path)
         if image is None:
-            raise ValueError(
-                f"Imagem não encontrada ou corrompida: {img_path}"
-            )
+            raise ValueError(f"Imagem não encontrada ou corrompida: {img_path}")
+            
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-        # Encontra o bounding box da área não-zero e recorta
-        # Foca apenas no pulmão se o dataset for segmentado, removendo o fundo preto desnecessário
-        if self.is_segmented:
-            coords = cv2.findNonZero(image)
-            if coords is not None:
-                x, y, w, h = cv2.boundingRect(coords)
-                image = image[y:y+h, x:x+w]
-
-        # Aplica CLAHE para intensificar bordas e diferenças nos tecidos
-        try:
-            image = self.clahe.apply(image)
-        except cv2.error as e:
-            logger.warning(
-                f"CLAHE falhou para {img_path}: {e}. "
-                f"Usando imagem sem realce de contraste."
-            )
-
-        # Converte de grayscale para RGB (DenseNet espera 3 canais)
-        image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
-        image_pil = Image.fromarray(image)
-
-        # Aplica as transformações (resize, augmentation, normalização)
+        # Aplica as transformações (Albumentations)
         if self.transform:
-            image_pil = self.transform(image_pil)
+            augmented = self.transform(image=image)
+            image_tensor = augmented["image"]
+        else:
+            # Fallback se não houver transform (embora ToTensor seja obrigatório)
+            import torch
+            image_tensor = torch.from_numpy(image.transpose(2, 0, 1)).float() / 255.0
 
-        return image_pil, label
+        return image_tensor, label
 
 
-# Transformações de treino com data augmentation
-train_transforms = transforms.Compose(
-    [
-        transforms.Resize((224, 224)),           # Redimensiona para o tamanho esperado pela DenseNet
-        transforms.RandomHorizontalFlip(0.5),    # Flip horizontal aleatório (50% de chance)
-        transforms.RandomAffine(degrees=15, translate=(0.05, 0.05), scale=(0.9, 1.1)),
-        transforms.ColorJitter(brightness=0.3, contrast=0.3),
-        transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 1.0)),
-        transforms.ToTensor(),                   # Converte para tensor PyTorch [0, 1]
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),  # Normalização ImageNet
-        transforms.RandomErasing(p=0.15, scale=(0.02, 0.1))
-    ]
-)
+# Transformações de treino com Albumentations
+train_transforms = A.Compose([
+    A.Resize(224, 224),
+    A.HorizontalFlip(p=0.5),
+    A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.1, rotate_limit=15, p=0.5),
+    A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5),
+    A.GaussianBlur(blur_limit=(3, 7), p=0.3),
+    A.CoarseDropout(max_holes=8, max_height=16, max_width=16, min_holes=1, min_height=8, min_width=8, fill_value=0, p=0.3),
+    A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+    ToTensorV2()
+])
 
 # Transformações de validação/teste sem augmentation
-val_transforms = transforms.Compose(
-    [
-        transforms.Resize((224, 224)),           # Redimensiona para o tamanho esperado
-        transforms.ToTensor(),                   # Converte para tensor PyTorch [0, 1]
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),  # Normalização ImageNet
-    ]
-)
+val_transforms = A.Compose([
+    A.Resize(224, 224),
+    A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+    ToTensorV2()
+])

@@ -25,13 +25,26 @@ logger = logging.getLogger(__name__)
 
 
 def load_annotation_file(path):
-    """Lê um arquivo de anotação e retorna lista de (filename, label)."""
+    """Lê um arquivo de anotação e retorna lista de (filename, label).
+    
+    Remove a classe 0 (Normal) e remapeia as classes doentes:
+        1 (Pneumonia) -> 0
+        2 (COVID-19) -> 1
+    """
     entries = []
     with open(path) as f:
         for line in f:
             parts = line.strip().split()
             if len(parts) >= 2:
-                entries.append((parts[0], int(parts[1])))
+                label = int(parts[1])
+                
+                # Ignora a classe Normal (0)
+                if label == 0:
+                    continue
+                    
+                # Remapeia Pneumonia(1)->0 e COVID-19(2)->1
+                new_label = label - 1
+                entries.append((parts[0], new_label))
     return entries
 
 
@@ -79,7 +92,7 @@ def stratified_split(entries, val_ratio=0.2, seed=42):
 
 def print_distribution(name, entries):
     """Exibe a distribuição de classes de um conjunto de dados."""
-    class_names = {0: "Normal", 1: "Pneumonia", 2: "COVID-19"}
+    class_names = {0: "Pneumonia", 1: "COVID-19"}
     counts = Counter(label for _, label in entries)
     total = len(entries)
     parts = " | ".join(
@@ -90,7 +103,7 @@ def print_distribution(name, entries):
 
 
 if __name__ == "__main__":
-    from config import Config
+    from src.config import Config
 
     base = Path(Config.BASE_PATH)
 

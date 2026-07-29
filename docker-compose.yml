@@ -10,6 +10,10 @@ services:
       - DATASET_PATH=/app/data      # Caminho do dataset dentro do contêiner
       - NVIDIA_VISIBLE_DEVICES=all   # Expõe todas as GPUs ao contêiner
       - PYTHONUNBUFFERED=1           # Força saída em tempo real (sem buffer)
+      - WANDB_API_KEY=${WANDB_API_KEY} # Chave da API do Wandb (passar via export ou .env)
+
+    ports:
+      - "8888:8888"                  # Porta para o Jupyter Notebook
 
     runtime: nvidia
     tty: true

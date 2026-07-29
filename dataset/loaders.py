@@ -1,5 +1,5 @@
-from config import Config
-from dataset import CovidCTDataset, train_transforms, val_transforms
+from src.config import Config
+from dataset.dataset import CovidCTDataset, train_transforms, val_transforms
 from torch.utils.data import DataLoader
 
 # Datasets — instâncias do CovidCTDataset para cada split

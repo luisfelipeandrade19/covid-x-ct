@@ -1,3 +1,4 @@
+from src.config import Config
 from torchvision.models import densenet161, DenseNet161_Weights
 import torch.nn as nn
 import pytorch_lightning as pl

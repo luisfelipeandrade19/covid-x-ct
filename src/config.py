@@ -18,7 +18,7 @@ class Config:
     EXPERIMENT_NAME = f"{'SEG' if USE_SEGMENTED_DATA else 'FULL'}_{'GU' if USE_GRADUAL_UNFREEZING else 'NOGU'}"
 
     # ── Hiperparâmetros ──
-    NUM_CLASSES = 3              # Número de classes: Normal, Pneumonia, COVID-19
+    NUM_CLASSES = 2              # Número de classes: Pneumonia (0), COVID-19 (1)
     BATCH_SIZE = 64              # Tamanho do lote para treino e validação
     LEARNING_RATE = 5e-4         # Taxa de aprendizado inicial
     MAX_EPOCHS = 40              # Épocas máximas
