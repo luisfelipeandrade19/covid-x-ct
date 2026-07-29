@@ -241,8 +241,7 @@ def run_calibration(model, val_loader, test_loader, device):
     )
 
     # Aplica o Temperature Scaling (otimiza T no conjunto de validação)
-    print("Erro: calibration.py agora é um módulo. Por favor, execute através do run_all_experiments.py para suportar múltiplas arquiteturas.")
-    sys.exit(1)
+
     calibrated_model = ModelWithTemperature(model)
     calibrated_model.to(device)
 
