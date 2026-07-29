@@ -10,9 +10,9 @@ import torch
 import torch.nn as nn
 from torch import optim
 
-from config import Config
-from loaders import test_loader, val_loader
-from model import SimpleClassifier
+from src.config import Config
+from dataset.loaders import test_loader, val_loader
+from src.model import SimpleClassifier
 
 logger = logging.getLogger(__name__)
 

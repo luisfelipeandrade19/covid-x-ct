@@ -8,7 +8,7 @@ Uso:
 
 import os
 from pathlib import Path
-from config import Config
+from src.config import Config
 
 base = Path(Config.BASE_PATH)
 
