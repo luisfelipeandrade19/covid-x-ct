@@ -6,11 +6,13 @@ services:
       - /media/riccelli/Datasets_LISA/datasets_covid/covidxct:/app/data  # Dataset do lab
       - ./outputs:/app/outputs      # Outputs gerados (gráficos, métricas)
 
+    env_file:
+      - .env
+
     environment:
       - DATASET_PATH=/app/data      # Caminho do dataset dentro do contêiner
       - NVIDIA_VISIBLE_DEVICES=all   # Expõe todas as GPUs ao contêiner
       - PYTHONUNBUFFERED=1           # Força saída em tempo real (sem buffer)
-      - WANDB_API_KEY=${WANDB_API_KEY} # Chave da API do Wandb (passar via export ou .env)
 
     command: jupyter notebook --ip 0.0.0.0 --port 8888 --no-browser --allow-root
 
