@@ -5,6 +5,9 @@ services:
     volumes:
       - /media/riccelli/Datasets_LISA/datasets_covid/covidxct:/app/data  # Dataset do lab
       - ./outputs:/app/outputs      # Outputs gerados (gráficos, métricas)
+      - ./src:/app/src              # Código-fonte (atualiza em tempo real)
+      - ./scripts:/app/scripts      # Scripts (atualiza em tempo real)
+      - ./dataset:/app/dataset      # Loaders (atualiza em tempo real)
 
     env_file:
       - .env
