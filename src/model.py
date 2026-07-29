@@ -115,9 +115,17 @@ class SimpleClassifier(pl.LightningModule):
         # Controle da fase atual de descongelamento
         self._current_stage = 0
 
-        # Métricas de acurácia para treino e validação
-        self.train_acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes)
-        self.val_acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes)
+        # Coleção de métricas clínicas binárias
+        metrics = torchmetrics.MetricCollection([
+            torchmetrics.Accuracy(task="binary"),
+            torchmetrics.Precision(task="binary"),
+            torchmetrics.Recall(task="binary"),
+            torchmetrics.Specificity(task="binary"),
+            torchmetrics.F1Score(task="binary"),
+            torchmetrics.AUROC(task="binary")
+        ])
+        self.train_metrics = metrics.clone(prefix='train_')
+        self.val_metrics = metrics.clone(prefix='val_')
 
     def unfreeze_stage(self, stage: int):
         """Descongela todos os blocos até a fase indicada (inclusive).
@@ -173,12 +181,15 @@ class SimpleClassifier(pl.LightningModule):
         logits = self(x)
         loss = self.criterion(logits, y)
 
-        # Atualiza a métrica de acurácia de treino
-        self.train_acc(torch.argmax(logits, dim=1), y)
+        # Extrai a probabilidade da classe positiva (COVID-19 = índice 1)
+        probs = torch.softmax(logits, dim=1)[:, 1]
 
-        # Registra loss e acurácia no logger
+        # Atualiza as métricas de treino
+        self.train_metrics(probs, y)
+
+        # Registra loss e dicionário de métricas no logger
         self.log('train_loss', loss, on_epoch=True, prog_bar=True)
-        self.log('train_acc', self.train_acc, on_epoch=True, prog_bar=True)
+        self.log_dict(self.train_metrics, on_epoch=True, prog_bar=False)
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -195,12 +206,15 @@ class SimpleClassifier(pl.LightningModule):
         logits = self(x)
         loss = self.criterion(logits, y)
 
-        # Atualiza a métrica de acurácia de validação
-        self.val_acc(torch.argmax(logits, dim=1), y)
+        # Extrai a probabilidade da classe positiva (COVID-19 = índice 1)
+        probs = torch.softmax(logits, dim=1)[:, 1]
 
-        # Registra loss e acurácia no logger
+        # Atualiza as métricas de validação
+        self.val_metrics(probs, y)
+
+        # Registra loss e dicionário de métricas no logger
         self.log('val_loss', loss, on_epoch=True, prog_bar=True)
-        self.log('val_acc', self.val_acc, on_epoch=True, prog_bar=True)
+        self.log_dict(self.val_metrics, on_epoch=True, prog_bar=False)
         return loss
 
     def configure_optimizers(self):
