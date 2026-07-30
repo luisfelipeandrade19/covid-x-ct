@@ -64,6 +64,3 @@ def get_dataloaders():
 
     return train_loader, val_loader, test_loader
 
-# Mantém instâncias globais para compatibilidade com notebooks isolados,
-# inicializando-as com a configuração padrão do config.py
-train_loader, val_loader, test_loader = get_dataloaders()
