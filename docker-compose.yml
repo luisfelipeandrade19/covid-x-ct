@@ -9,10 +9,8 @@ services:
       - ./scripts:/app/scripts      # Scripts (atualiza em tempo real)
       - ./dataset:/app/dataset      # Loaders (atualiza em tempo real)
 
-    env_file:
-      - .env
-
     environment:
+      - WANDB_API_KEY=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
       - DATASET_PATH=/app/data      # Caminho do dataset dentro do contêiner
       - NVIDIA_VISIBLE_DEVICES=all   # Expõe todas as GPUs ao contêiner
       - PYTHONUNBUFFERED=1           # Força saída em tempo real (sem buffer)
