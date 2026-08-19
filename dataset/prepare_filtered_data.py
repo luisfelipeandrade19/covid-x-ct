@@ -171,8 +171,14 @@ def print_distribution(name, entries):
 
 if __name__ == "__main__":
     import sys
-    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    import os
     
+    # Força a raiz do projeto ser a prioridade número 1 nos imports
+    # Resolve o erro "dataset is not a package"
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+        
     from src.config import Config
 
     base = Path(Config.BASE_PATH)
