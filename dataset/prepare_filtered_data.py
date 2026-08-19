@@ -206,7 +206,9 @@ if __name__ == "__main__":
 
     logger.info(f"Interseção treino (original ∩ segmentada): {len(valid_train_images)}")
     logger.info(f"Interseção teste (original ∩ segmentada): {len(valid_test_images)}")
-    valid_files = seg_images & original_images
+    
+    # Une as duas listas de imagens que passaram na interseção
+    valid_files = valid_train_images | valid_test_images
 
     def map_and_filter(path, label_str, valid_set):
         return [(f, l) for f, l in load_annotation_file(path) if f in valid_set]
