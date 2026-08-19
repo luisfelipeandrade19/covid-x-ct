@@ -108,7 +108,7 @@ class BaseClassifier(pl.LightningModule):
         return out
 
     def training_step(self, batch, batch_idx):
-        x, y = batch
+        x, y, *rest = batch
         logits = self(x)
         loss = self.criterion(logits, y)
         self.log('train_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
@@ -118,7 +118,7 @@ class BaseClassifier(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        x, y = batch
+        x, y, *rest = batch
         logits = self(x)
         loss = self.criterion(logits, y)
         self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
@@ -128,7 +128,7 @@ class BaseClassifier(pl.LightningModule):
         return loss
 
     def test_step(self, batch, batch_idx):
-        x, y = batch
+        x, y, *rest = batch
         logits = self(x)
         loss = self.criterion(logits, y)
         self.log('test_loss', loss)

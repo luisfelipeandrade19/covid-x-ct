@@ -110,10 +110,14 @@ class CovidCTDataset(Dataset):
         Returns:
             Tupla (imagem_transformada, rótulo).
         """
-        # Extrai o nome do arquivo e o rótulo da linha correspondente
+        # Extrai o nome do arquivo, rótulo e o patient_id
         img_name = self.data.iloc[idx, 0]
         img_path = os.path.join(self.img_dir, img_name)
         label = int(self.data.iloc[idx, 1])
+        
+        # Import local para evitar erro circular
+        from dataset.prepare_filtered_data import get_patient_id
+        patient_id = get_patient_id(img_name)
 
         # Lê a imagem em RGB (as pré-processadas já estão em RGB)
         image = cv2.imread(img_path)
@@ -131,7 +135,7 @@ class CovidCTDataset(Dataset):
             import torch
             image_tensor = torch.from_numpy(image.transpose(2, 0, 1)).float() / 255.0
 
-        return image_tensor, label
+        return image_tensor, label, patient_id
 
 
 # Transformações de treino com Albumentations

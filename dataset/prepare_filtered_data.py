@@ -56,8 +56,49 @@ def save_annotation_file(entries, path):
     logger.info(f"Salvo: {path} ({len(entries)} amostras)")
 
 
-def stratified_split(entries, val_ratio=0.2, seed=42):
-    """Divide entries em treino e validação, estratificado por classe.
+import re
+
+def get_patient_id(filename):
+    """Extrai o identificador único do paciente a partir do nome do arquivo.
+    
+    Usa heurísticas baseadas nos padrões de nomenclatura do COVIDx CT-3A:
+    - 137covid_patient100_SR_2_IM00028.png -> 137covid_patient100
+    - volume-covid19-A-0698_ct-0017.png -> volume-covid19-A-0698
+    - CP_10_01.png -> CP_10
+    """
+    name = filename.split('.')[0] # Remove extensão
+    
+    # Padrão: 137covid_patient100...
+    match = re.search(r'(.*patient\d+)', name)
+    if match: return match.group(1)
+        
+    # Padrão: volume-covid19-A-0698...
+    match = re.search(r'(volume-covid19-[A-Za-z0-9]+-\d+)', name)
+    if match: return match.group(1)
+    
+    # Padrão CP: CP_10_01 -> CP_10
+    if name.startswith('CP_'):
+        parts = name.split('_')
+        if len(parts) >= 2:
+            return f"{parts[0]}_{parts[1]}"
+            
+    # Fallback: remove a última parte (que costuma ser o número do slice)
+    parts = name.split('_')
+    if len(parts) > 1:
+        return '_'.join(parts[:-1])
+    
+    parts = name.split('-')
+    if len(parts) > 1:
+        return '-'.join(parts[:-1])
+        
+    return name
+
+def stratified_patient_split(entries, val_ratio=0.2, seed=42):
+    """Divide entries em treino e validação a NÍVEL DE PACIENTE.
+    
+    Garante que todos os slices de um mesmo paciente fiquem exclusivamente
+    no treino ou na validação, evitando data leakage. A estratificação é 
+    feita com base na classe do paciente.
 
     Args:
         entries: lista de (filename, label).
@@ -69,21 +110,47 @@ def stratified_split(entries, val_ratio=0.2, seed=42):
     """
     random.seed(seed)
 
-    # Agrupa por classe
-    by_class = {}
+    # 1. Agrupa slices por paciente
+    # patients = { patient_id: {'label': class, 'slices': [(fn, label), ...]} }
+    patients = {}
     for filename, label in entries:
-        by_class.setdefault(label, []).append((filename, label))
+        pid = get_patient_id(filename)
+        if pid not in patients:
+            patients[pid] = {'label': label, 'slices': []}
+        patients[pid]['slices'].append((filename, label))
+
+    # 2. Agrupa pacientes por classe para estratificação
+    by_class = {}
+    for pid, data in patients.items():
+        by_class.setdefault(data['label'], []).append(pid)
 
     train_entries, val_entries = [], []
+    train_pids, val_pids = set(), set()
 
+    # 3. Divide os pacientes de cada classe
     for label in sorted(by_class.keys()):
-        items = by_class[label]
-        random.shuffle(items)
-        split_idx = int(len(items) * (1 - val_ratio))
-        train_entries.extend(items[:split_idx])
-        val_entries.extend(items[split_idx:])
+        pids = by_class[label]
+        random.shuffle(pids)
+        split_idx = int(len(pids) * (1 - val_ratio))
+        
+        # Adiciona pacientes ao treino
+        for pid in pids[:split_idx]:
+            train_entries.extend(patients[pid]['slices'])
+            train_pids.add(pid)
+            
+        # Adiciona pacientes à validação
+        for pid in pids[split_idx:]:
+            val_entries.extend(patients[pid]['slices'])
+            val_pids.add(pid)
 
-    # Shuffle final para misturar classes
+    # Verifica leakage
+    overlap = train_pids & val_pids
+    if overlap:
+        logger.error(f"FATAL LEAKAGE! {len(overlap)} pacientes em ambos os splits.")
+    else:
+        logger.info(f"Split patient-disjoint com sucesso. Treino: {len(train_pids)} pctes | Val: {len(val_pids)} pctes.")
+
+    # Shuffle final para misturar os slices durante o carregamento
     random.shuffle(train_entries)
     random.shuffle(val_entries)
 
@@ -139,36 +206,39 @@ if __name__ == "__main__":
 
     logger.info(f"Interseção treino (original ∩ segmentada): {len(valid_train_images)}")
     logger.info(f"Interseção teste (original ∩ segmentada): {len(valid_test_images)}")
+    valid_files = seg_images & original_images
 
-    # 3. Filtra anotações originais para conter apenas imagens válidas
-    train_txt = base / "train_COVIDx_CT-3A.txt"
-    test_txt = base / "test_COVIDx_CT-3A.txt"
+    def map_and_filter(path, label_str, valid_set):
+        return [(f, l) for f, l in load_annotation_file(path) if f in valid_set]
 
-    train_all = [(f, l) for f, l in load_annotation_file(train_txt) if f in valid_train_images]
-    test_filtered = [(f, l) for f, l in load_annotation_file(test_txt) if f in valid_test_images]
+    train_orig = base / "train_COVIDx_CT-3A.txt"
+    test_orig = base / "test_COVIDx_CT-3A.txt"
 
-    logger.info(f"\nApós filtro:")
-    logger.info(f"  Treino+Val disponíveis: {len(train_all)}")
-    logger.info(f"  Teste disponíveis: {len(test_filtered)}")
+    train_all = map_and_filter(train_orig, "treino", valid_files)
+    test_all = map_and_filter(test_orig, "teste", valid_files)
 
-    # 4. Divide treino em train+val (80/20, estratificado)
-    train_filtered, val_filtered = stratified_split(train_all, val_ratio=0.2, seed=42)
+    logger.info("--- Resumo ---")
+    
+    all_entries = train_all + test_all
+    logger.info(f"  Total de amostras disponíveis: {len(all_entries)}")
+    
+    train_filtered, temp_filtered = stratified_patient_split(all_entries, val_ratio=0.2, seed=42)
+    val_filtered, test_filtered = stratified_patient_split(temp_filtered, val_ratio=0.5, seed=42)
 
-    # 5. Exibe distribuição
     logger.info("\nDistribuição final:")
-    print_distribution("Treino", train_filtered)
-    print_distribution("Validação", val_filtered)
-    print_distribution("Teste", test_filtered)
+    def log_dist(name, entries):
+        counts = Counter([label for _, label in entries])
+        pids = set(get_patient_id(fn) for fn, _ in entries)
+        logger.info(f"  {name}: {len(entries)} slices | {len(pids)} pacientes")
+        logger.info(f"    Pneumonia: {counts.get(0, 0)} | COVID-19: {counts.get(1, 0)}")
 
-    # 6. Salva arquivos de anotação filtrados
-    output_dir = base
-    save_annotation_file(train_filtered, output_dir / "train_filtered.txt")
-    save_annotation_file(val_filtered, output_dir / "val_filtered.txt")
-    save_annotation_file(test_filtered, output_dir / "test_filtered.txt")
+    log_dist("Treino", train_filtered)
+    log_dist("Validação", val_filtered)
+    log_dist("Teste", test_filtered)
 
-    logger.info("\n" + "=" * 60)
-    logger.info("Arquivos gerados com sucesso!")
-    logger.info(f"  train_filtered.txt: {len(train_filtered)} amostras")
-    logger.info(f"  val_filtered.txt:   {len(val_filtered)} amostras")
-    logger.info(f"  test_filtered.txt:  {len(test_filtered)} amostras")
+    save_annotation_file(train_filtered, base / "train_filtered.txt")
+    save_annotation_file(val_filtered, base / "val_filtered.txt")
+    save_annotation_file(test_filtered, base / "test_filtered.txt")
+
+    logger.info("\nProcesso concluído com sucesso!")
     logger.info("=" * 60)
